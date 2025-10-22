@@ -1,0 +1,63 @@
+name: Deploy to Molly Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sanity check
+        run: python -m compileall main.py src
+
+      - name: Ensure target directory exists
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.MOLLY_SERVER_HOST }}
+          username: ${{ secrets.MOLLY_SERVER_USERNAME }}
+          password: ${{ secrets.MOLLY_SSH_PASSWORD }}
+          port: 5252
+          script: |
+            mkdir -p ~/apps/spanish-study-telegram-bot
+
+      - name: Sync project files
+        uses: easingthemes/ssh-deploy@v4
+        with:
+          SSH_PASS: ${{ secrets.MOLLY_SSH_PASSWORD }}
+          REMOTE_HOST: ${{ secrets.MOLLY_SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.MOLLY_SERVER_USERNAME }}
+          REMOTE_PORT: 5252
+          SOURCE: "./"
+          TARGET: "~/apps/spanish-study-telegram-bot"
+          EXCLUDE: ".git/,venv/,__pycache__/,data/,logs/,.env"
+          ARGS: "-rltgoDzvO --delete"
+
+      - name: Setup service and restart bot
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.MOLLY_SERVER_HOST }}
+          username: ${{ secrets.MOLLY_SERVER_USERNAME }}
+          password: ${{ secrets.MOLLY_SSH_PASSWORD }}
+          port: 5252
+          script: |
+            cd ~/apps/spanish-study-telegram-bot
+            bash deploy/remote_setup.sh
