@@ -11,10 +11,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 LOGS_DIR = PROJECT_ROOT / "logs"
 DATA_DIR = PROJECT_ROOT / "data"
+PROMPTS_DIR = CONFIG_DIR / "prompts"
 
 # Create necessary directories
 LOGS_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
+PROMPTS_DIR.mkdir(exist_ok=True)
 
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -48,6 +50,9 @@ LLM_TEMPERATURE = 0.8  # Higher for more personality
 
 # Character Profile
 CHARACTER_PROFILE_PATH = CONFIG_DIR / "character_profile.yaml"
+SYSTEM_PROMPT_PATH = PROMPTS_DIR / "system_prompt.md"
+GREETING_PROMPT_PATH = PROMPTS_DIR / "greeting_message.md"
+HELP_PROMPT_PATH = PROMPTS_DIR / "help_message.md"
 
 # Conversation history storage
 CONVERSATION_DB_PATH = DATA_DIR / "conversations.sqlite"

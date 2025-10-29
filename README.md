@@ -78,7 +78,11 @@ spanish-study-telegram-bot/
 │   ├── llm_client.py           # OpenRouter LLM integration
 │   └── personality.py          # Character personality system
 ├── config/
-│   └── character_profile.yaml  # Sofía's personality definition
+│   ├── character_profile.yaml  # Sofía's personality definition
+│   └── prompts/                # System prompt, greeting, and help text templates
+│       ├── system_prompt.md
+│       ├── greeting_message.md
+│       └── help_message.md
 ├── docs/
 │   └── ROADMAP.md             # Full development roadmap
 ├── requirements.txt           # Python dependencies
@@ -104,6 +108,9 @@ Sofía is your Spanish tutor - a 28-year-old language teacher from Madrid who lo
 
 ### Current Phase: Phase 0 (Foundation)
 This is the MVP with basic conversational capabilities.
+
+### Persona & Prompt Tuning
+Customize Sofía's behaviour by editing `config/character_profile.yaml` and the Markdown templates inside `config/prompts/`. Updates to those files are picked up on the next bot restart, making iteration on tone, rules, or help text quick and version-controlled.
 
 ### Running in Development Mode
 ```bash
