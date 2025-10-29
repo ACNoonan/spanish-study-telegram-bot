@@ -47,7 +47,7 @@ An AI-powered Spanish tutor bot that helps learners progress from B1 to B2 throu
    python main.py
    ```
 
-## ✨ Features (Phase 0 - MVP)
+## ✨ Features
 
 ### Current Implementation
 - ✅ **Conversational Bot**: Natural conversation in Spanish
@@ -56,6 +56,7 @@ An AI-powered Spanish tutor bot that helps learners progress from B1 to B2 throu
 - ✅ **Basic Commands**: `/start`, `/help`
 - ✅ **Typing Indicators**: Natural conversation feel
 - ✅ **Conversation Memory**: SQLite-backed recent-message context
+- ✅ **Gentle Corrections**: Automatic error detection with subtle prompts
 
 ### Coming Soon (See [ROADMAP.md](docs/ROADMAP.md))
 - ✍️ Intelligent error correction
@@ -136,8 +137,8 @@ Sofía: ¡Hola, cariño! Estoy muy bien, gracias 😊 Acabo de volver de pasear
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the complete 16-week development plan.
 
-**Current Status**: ✅ Phase 0 Complete (Week 1)  
-**Next Up**: Phase 1 - Conversation Memory & Corrections (Week 2)
+**Current Status**: 🔄 Phase 1 In Progress (Week 2)  
+**Focus**: Conversation Memory Enhancements & Corrections
 
 ## 💰 Cost Estimates (Phase 0)
 

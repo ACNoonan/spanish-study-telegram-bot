@@ -21,6 +21,16 @@ class ConversationMessage:
     content: str
 
 
+@dataclass(frozen=True)
+class CorrectionEntry:
+    """Represents a logged correction for analytics."""
+
+    error_type: str
+    original_text: str
+    corrected_text: str
+    explanation: str
+
+
 class ConversationStore:
     """Manage conversation history for each user using SQLite."""
 
@@ -61,6 +71,22 @@ class ConversationStore:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_conversation_user ON conversation_messages (user_id, id)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS conversation_corrections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    error_type TEXT NOT NULL,
+                    original_text TEXT NOT NULL,
+                    corrected_text TEXT NOT NULL,
+                    explanation TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_corrections_user ON conversation_corrections (user_id, id)"
             )
             conn.commit()
 
@@ -108,6 +134,41 @@ class ConversationStore:
         except Exception as exc:
             logger.error("Failed to fetch conversation history: %s", exc, exc_info=True)
             return []
+
+    async def log_correction(
+        self,
+        user_id: str,
+        correction: CorrectionEntry,
+    ) -> None:
+        """Persist a correction entry for later analytics."""
+        await self.initialize()
+        await asyncio.to_thread(self._log_correction_sync, user_id, correction)
+
+    def _log_correction_sync(self, user_id: str, correction: CorrectionEntry) -> None:
+        """Blocking insert for correction entries."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO conversation_corrections (
+                        user_id,
+                        error_type,
+                        original_text,
+                        corrected_text,
+                        explanation
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        correction.error_type,
+                        correction.original_text,
+                        correction.corrected_text,
+                        correction.explanation,
+                    ),
+                )
+                conn.commit()
+        except Exception as exc:
+            logger.error("Failed to log correction: %s", exc, exc_info=True)
 
 
 # Global instance used throughout the bot
