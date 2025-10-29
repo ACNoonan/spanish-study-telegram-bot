@@ -1,6 +1,9 @@
 """Main Telegram bot implementation."""
 import inspect
 import logging
+import random
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -11,10 +14,15 @@ from telegram.ext import (
 )
 from telegram.constants import ChatAction
 
-from src.config import TELEGRAM_BOT_TOKEN
+from src.config import (
+    TELEGRAM_BOT_TOKEN,
+    DEFAULT_USER_TIMEZONE,
+    ENGAGEMENT_CHECK_INTERVAL_SECONDS,
+    MORNING_MESSAGE_HOUR,
+)
 from src.llm_client import llm_client
 from src.personality import personality_system
-from src.conversation_store import conversation_store, CorrectionEntry
+from src.conversation_store import conversation_store, CorrectionEntry, UserEngagement
 from src.correction import correction_analyzer, CorrectionSuggestion
 
 # Configure logging
@@ -30,6 +38,22 @@ FALLBACK_TECHNICAL = (
 )
 FALLBACK_ERROR = "¡Ups! Algo salió mal. Por favor, inténtalo de nuevo."
 
+MORNING_MESSAGES = [
+    "¡Buenos días! ☀️ ¿Listo para practicar un poco de español conmigo hoy? Cuéntame algo divertido de tu mañana.",
+    "¡Hola, cariño! Hoy quiero que me digas tres cosas por las que estás agradecido. ¿Te animas?",
+    "Buenos días 🌅 Aquí en Madrid huele a café y churros. ¿Qué planes tienes para hoy?",
+    "¡Arriba! 💪 Te propongo un mini reto: usa el pretérito perfecto en una frase sobre lo que has hecho esta mañana.",
+    "¡Feliz día! 🎶 Hoy te dejo esta palabra para practicar: *aprovechar*. ¿Puedes usarla en una frase?",
+    "¡Hola hola! 😊 ¿Sabías que hoy en Madrid hay un mercadillo precioso en El Rastro? ¿Qué mercadillo o mercado te gusta a ti?",
+]
+
+REENGAGEMENT_CHECKS = [
+    (timedelta(hours=12), 1, "¿Todo bien? 😊 Estoy aquí cuando quieras seguir practicando."),
+    (timedelta(hours=24), 2, "Te echo un poquito de menos... ¿Qué tal tu día? Cuéntame algo."),
+    (timedelta(hours=48), 3, "¡Hola extraño! 😜 Hace dos días que no hablamos. ¿Te apetece ponerte al día?"),
+    (timedelta(days=7), 4, "¡Hola! Solo quería recordarte que sigo aquí para ayudarte con tu español cuando quieras. 💛"),
+]
+
 
 class SpanishTutorBot:
     """Spanish Tutor Bot with personality."""
@@ -43,6 +67,7 @@ class SpanishTutorBot:
         """Ensure supporting services are ready before handling updates."""
         await conversation_store.initialize()
         logger.info("SpanishTutorBot startup complete.")
+        await self._schedule_engagement_jobs(application)
     
     def _setup_handlers(self):
         """Set up command and message handlers."""
@@ -73,6 +98,11 @@ class SpanishTutorBot:
         user = update.effective_user
         user_message = update.message.text
         user_id = str(user.id)
+        timezone_name = self._resolve_timezone(update)
+
+        message_date = update.message.date or datetime.now(timezone.utc)
+        if message_date.tzinfo is None:
+            message_date = message_date.replace(tzinfo=timezone.utc)
         
         logger.info(f"Message from {user.id}: {user_message}")
         
@@ -143,6 +173,17 @@ class SpanishTutorBot:
                             explanation=suggestion.explanation,
                         ),
                     )
+                await conversation_store.record_user_activity(
+                    user_id,
+                    timezone_name,
+                    message_date,
+                )
+                if response_text:
+                    await conversation_store.record_bot_activity(
+                        user_id,
+                        timezone_name,
+                        datetime.now(timezone.utc),
+                    )
             except Exception as store_error:
                 logger.error(
                     "Failed to persist conversation messages for user %s: %s",
@@ -197,6 +238,146 @@ class SpanishTutorBot:
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Reaction attempt failed (%s): %s", attr_name, exc)
                 return
+
+    async def _schedule_engagement_jobs(self, application: Application) -> None:
+        """Register background engagement jobs."""
+        job_queue = application.job_queue
+        if not job_queue:
+            logger.warning("Job queue not available; scheduled events disabled.")
+            return
+
+        job_queue.run_repeating(
+            self._engagement_tick,
+            interval=ENGAGEMENT_CHECK_INTERVAL_SECONDS,
+            first=0,
+            name="engagement_tick",
+        )
+        logger.info(
+            "Scheduled engagement job every %s seconds",
+            ENGAGEMENT_CHECK_INTERVAL_SECONDS,
+        )
+
+    async def _engagement_tick(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """
+        Periodic engagement check for morning pings and inactivity reminders.
+
+        This job runs frequently but may choose not to send anything if the
+        criteria are not met.
+        """
+        now_utc = datetime.now(timezone.utc)
+        try:
+            engagements = await conversation_store.get_all_engagements()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Failed to retrieve engagement data: %s", exc, exc_info=True)
+            return
+
+        for engagement in engagements:
+            timezone_name = engagement.timezone or DEFAULT_USER_TIMEZONE
+            try:
+                zone = ZoneInfo(timezone_name)
+            except ZoneInfoNotFoundError:
+                zone = ZoneInfo(DEFAULT_USER_TIMEZONE)
+                logger.debug("Unknown timezone %s for user %s. Using default.", timezone_name, engagement.user_id)
+
+            local_now = now_utc.astimezone(zone)
+            user_chat_id = int(engagement.user_id)
+
+            await self._maybe_send_morning_message(
+                context,
+                user_chat_id,
+                engagement,
+                timezone_name,
+                local_now,
+                now_utc,
+            )
+            await self._maybe_send_reengagement_message(
+                context,
+                user_chat_id,
+                engagement,
+                timezone_name,
+                now_utc,
+            )
+
+    async def _maybe_send_morning_message(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        chat_id: int,
+        engagement: UserEngagement,
+        timezone_name: str,
+        local_now: datetime,
+        now_utc: datetime,
+    ) -> None:
+        """Send a morning ping if it hasn't been delivered today."""
+        if local_now.hour < MORNING_MESSAGE_HOUR or local_now.hour >= MORNING_MESSAGE_HOUR + 2:
+            return
+
+        if engagement.last_morning_ping_date == local_now.date():
+            return
+
+        message = random.choice(MORNING_MESSAGES)
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=message)
+            await conversation_store.mark_morning_ping(
+                str(chat_id),
+                timezone_name,
+                local_now.date(),
+            )
+            await conversation_store.record_bot_activity(
+                str(chat_id),
+                timezone_name,
+                now_utc,
+            )
+            logger.info("Sent morning ping to user %s", chat_id)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Failed to send morning message to %s: %s", chat_id, exc, exc_info=True)
+
+    async def _maybe_send_reengagement_message(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        chat_id: int,
+        engagement: UserEngagement,
+        timezone_name: str,
+        now_utc: datetime,
+    ) -> None:
+        """Send inactivity reminders based on last user message time."""
+        last_user_message = engagement.last_user_message_at
+        if not last_user_message:
+            return
+
+        idle_time = now_utc - last_user_message
+        for threshold, level, text in REENGAGEMENT_CHECKS:
+            if idle_time >= threshold and engagement.reengagement_level < level:
+                try:
+                    await context.bot.send_message(chat_id=chat_id, text=text)
+                    await conversation_store.update_reengagement_level(
+                        str(chat_id),
+                        timezone_name,
+                        level,
+                    )
+                    await conversation_store.record_bot_activity(
+                        str(chat_id),
+                        timezone_name,
+                        now_utc,
+                    )
+                    logger.info(
+                        "Sent re-engagement level %s message to user %s after %s hours.",
+                        level,
+                        chat_id,
+                        idle_time.total_seconds() / 3600.0,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.error("Failed to send re-engagement message to %s: %s", chat_id, exc, exc_info=True)
+                finally:
+                    break
+
+    def _resolve_timezone(self, update: Update) -> str:
+        """
+        Resolve the user's timezone.
+
+        Telegram does not expose timezone directly. For now we default to the
+        configured timezone but this hook allows future per-user overrides.
+        """
+        return DEFAULT_USER_TIMEZONE
 
 
 def main():

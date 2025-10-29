@@ -461,6 +461,8 @@ La próxima semana vamos a practicar más 'por' y 'para' - ¡tú puedes! 💪
 
 ### Milestone 4.1: Daily Engagement System
 
+**Status:** ✅ Morning greetings and inactivity nudges shipped early (Week 2 fast-track)
+
 **Morning Messages (8 AM local time):**
 - **Format rotation:**
   - Grammar tip + example

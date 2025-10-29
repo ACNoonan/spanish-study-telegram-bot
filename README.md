@@ -57,6 +57,7 @@ An AI-powered Spanish tutor bot that helps learners progress from B1 to B2 throu
 - ✅ **Typing Indicators**: Natural conversation feel
 - ✅ **Conversation Memory**: SQLite-backed recent-message context
 - ✅ **Gentle Corrections**: Automatic error detection with subtle prompts
+- ✅ **Scheduled Check-ins**: Buenos días pings and inactivity nudges to keep momentum
 
 ### Coming Soon (See [ROADMAP.md](docs/ROADMAP.md))
 - ✍️ Intelligent error correction
@@ -82,7 +83,14 @@ spanish-study-telegram-bot/
 │   └── ROADMAP.md             # Full development roadmap
 ├── requirements.txt           # Python dependencies
 └── .env                       # Environment variables (not in git)
-```
+   ```
+
+   Optional environment overrides (default timezone is `Europe/Madrid`):
+   ```
+   DEFAULT_USER_TIMEZONE=America/New_York
+   ENGAGEMENT_CHECK_INTERVAL_SECONDS=1800
+   MORNING_MESSAGE_HOUR=8
+   ```
 
 ## 🎭 Meet Sofía
 

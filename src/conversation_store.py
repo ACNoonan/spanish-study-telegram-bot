@@ -6,7 +6,8 @@ import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+from datetime import datetime, timezone, date
 
 from src.config import CONVERSATION_DB_PATH
 
@@ -29,6 +30,26 @@ class CorrectionEntry:
     original_text: str
     corrected_text: str
     explanation: str
+
+
+@dataclass(frozen=True)
+class UserEngagement:
+    """Tracks per-user engagement data for scheduling."""
+
+    user_id: str
+    timezone: str
+    last_user_message_at: Optional[datetime]
+    last_bot_message_at: Optional[datetime]
+    last_morning_ping_date: Optional[date]
+    reengagement_level: int
+
+    @property
+    def last_interaction(self) -> Optional[datetime]:
+        """Return the most recent interaction timestamp."""
+        candidates = [ts for ts in (self.last_user_message_at, self.last_bot_message_at) if ts]
+        if not candidates:
+            return None
+        return max(candidates)
 
 
 class ConversationStore:
@@ -87,6 +108,18 @@ class ConversationStore:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_corrections_user ON conversation_corrections (user_id, id)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_engagement (
+                    user_id TEXT PRIMARY KEY,
+                    timezone TEXT NOT NULL,
+                    last_user_message_at TEXT,
+                    last_bot_message_at TEXT,
+                    last_morning_ping_date TEXT,
+                    reengagement_level INTEGER DEFAULT 0
+                )
+                """
             )
             conn.commit()
 
@@ -169,6 +202,177 @@ class ConversationStore:
                 conn.commit()
         except Exception as exc:
             logger.error("Failed to log correction: %s", exc, exc_info=True)
+
+    async def record_user_activity(
+        self,
+        user_id: str,
+        timezone_name: str,
+        timestamp: datetime,
+    ) -> None:
+        """Record that the user interacted with the bot."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            last_user_message_at=timestamp,
+            reengagement_level=0,
+        )
+
+    async def record_bot_activity(
+        self,
+        user_id: str,
+        timezone_name: str,
+        timestamp: datetime,
+    ) -> None:
+        """Record that the bot sent a proactive message."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            last_bot_message_at=timestamp,
+        )
+
+    async def mark_morning_ping(
+        self,
+        user_id: str,
+        timezone_name: str,
+        ping_date: date,
+    ) -> None:
+        """Store the last date a morning ping was delivered."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            last_morning_ping_date=ping_date,
+        )
+
+    async def update_reengagement_level(
+        self,
+        user_id: str,
+        timezone_name: str,
+        level: int,
+    ) -> None:
+        """Update the inactivity reminder level for the user."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            reengagement_level=level,
+        )
+
+    async def get_all_engagements(self) -> List[UserEngagement]:
+        """Return engagement records for all known users."""
+        await self.initialize()
+        rows = await asyncio.to_thread(self._get_all_engagements_sync)
+        return rows
+
+    def _ensure_engagement_row(
+        self,
+        conn: sqlite3.Connection,
+        user_id: str,
+        timezone_name: str,
+    ) -> None:
+        """Create a default engagement row if not present."""
+        conn.execute(
+            """
+            INSERT INTO user_engagement (user_id, timezone)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO NOTHING
+            """,
+            (user_id, timezone_name),
+        )
+
+    def _update_engagement_sync(
+        self,
+        user_id: str,
+        timezone_name: str,
+        last_user_message_at: Optional[datetime] = None,
+        last_bot_message_at: Optional[datetime] = None,
+        last_morning_ping_date: Optional[date] = None,
+        reengagement_level: Optional[int] = None,
+    ) -> None:
+        """Update engagement fields for a user."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                self._ensure_engagement_row(conn, user_id, timezone_name)
+                updates = ["timezone = ?"]
+                params: list = [timezone_name]
+
+                if last_user_message_at is not None:
+                    updates.append("last_user_message_at = ?")
+                    params.append(last_user_message_at.astimezone(timezone.utc).isoformat())
+
+                if last_bot_message_at is not None:
+                    updates.append("last_bot_message_at = ?")
+                    params.append(last_bot_message_at.astimezone(timezone.utc).isoformat())
+
+                if last_morning_ping_date is not None:
+                    updates.append("last_morning_ping_date = ?")
+                    params.append(last_morning_ping_date.isoformat())
+
+                if reengagement_level is not None:
+                    updates.append("reengagement_level = ?")
+                    params.append(reengagement_level)
+
+                params.append(user_id)
+                conn.execute(
+                    f"UPDATE user_engagement SET {', '.join(updates)} WHERE user_id = ?",
+                    params,
+                )
+                conn.commit()
+        except Exception as exc:
+            logger.error("Failed to update engagement row: %s", exc, exc_info=True)
+
+    def _get_all_engagements_sync(self) -> List[UserEngagement]:
+        """Fetch engagement rows in a blocking context."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT * FROM user_engagement")
+                rows = cursor.fetchall()
+                engagements: List[UserEngagement] = []
+                for row in rows:
+                    engagements.append(self._row_to_engagement(row))
+                return engagements
+        except Exception as exc:
+            logger.error("Failed to fetch user engagement data: %s", exc, exc_info=True)
+            return []
+
+    def _row_to_engagement(self, row: sqlite3.Row) -> UserEngagement:
+        """Convert a SQLite row into a UserEngagement object."""
+        def parse_datetime(value: Optional[str]) -> Optional[datetime]:
+            if not value:
+                return None
+            try:
+                dt = datetime.fromisoformat(value)
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=timezone.utc)
+                return dt
+            except ValueError:
+                logger.debug("Invalid datetime stored for user %s: %s", row["user_id"], value)
+                return None
+
+        def parse_date(value: Optional[str]) -> Optional[date]:
+            if not value:
+                return None
+            try:
+                return date.fromisoformat(value)
+            except ValueError:
+                logger.debug("Invalid date stored for user %s: %s", row["user_id"], value)
+                return None
+
+        return UserEngagement(
+            user_id=row["user_id"],
+            timezone=row["timezone"],
+            last_user_message_at=parse_datetime(row["last_user_message_at"]),
+            last_bot_message_at=parse_datetime(row["last_bot_message_at"]),
+            last_morning_ping_date=parse_date(row["last_morning_ping_date"]),
+            reengagement_level=row["reengagement_level"] or 0,
+        )
 
 
 # Global instance used throughout the bot

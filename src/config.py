@@ -51,3 +51,8 @@ CHARACTER_PROFILE_PATH = CONFIG_DIR / "character_profile.yaml"
 
 # Conversation history storage
 CONVERSATION_DB_PATH = DATA_DIR / "conversations.sqlite"
+
+# Engagement & scheduling configuration
+DEFAULT_USER_TIMEZONE = os.getenv("DEFAULT_USER_TIMEZONE", "Europe/Madrid")
+ENGAGEMENT_CHECK_INTERVAL_SECONDS = int(os.getenv("ENGAGEMENT_CHECK_INTERVAL_SECONDS", "1800"))  # 30 minutes
+MORNING_MESSAGE_HOUR = int(os.getenv("MORNING_MESSAGE_HOUR", "8"))
