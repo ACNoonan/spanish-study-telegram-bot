@@ -42,6 +42,10 @@ class UserEngagement:
     last_bot_message_at: Optional[datetime]
     last_morning_ping_date: Optional[date]
     reengagement_level: int
+    in_session_bot_turns: int
+    mood_score: float
+    last_weather_date: Optional[date]
+    last_weather_summary: Optional[str]
 
     @property
     def last_interaction(self) -> Optional[datetime]:
@@ -117,11 +121,39 @@ class ConversationStore:
                     last_user_message_at TEXT,
                     last_bot_message_at TEXT,
                     last_morning_ping_date TEXT,
-                    reengagement_level INTEGER DEFAULT 0
+                    reengagement_level INTEGER DEFAULT 0,
+                    in_session_bot_turns INTEGER DEFAULT 0,
+                    mood_score REAL DEFAULT 0.6,
+                    last_weather_date TEXT,
+                    last_weather_summary TEXT
                 )
                 """
             )
             conn.commit()
+
+            # Backfill schema for older databases missing new columns
+            try:
+                cursor = conn.execute("PRAGMA table_info(user_engagement)")
+                cols = {row[1] for row in cursor.fetchall()}
+                if "in_session_bot_turns" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN in_session_bot_turns INTEGER DEFAULT 0"
+                    )
+                if "mood_score" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN mood_score REAL DEFAULT 0.6"
+                    )
+                if "last_weather_date" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN last_weather_date TEXT"
+                    )
+                if "last_weather_summary" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN last_weather_summary TEXT"
+                    )
+                conn.commit()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("Schema backfill for user_engagement failed: %s", exc)
 
     async def append_message(self, user_id: str, role: str, content: str) -> None:
         """Persist a message for a given user."""
@@ -202,6 +234,23 @@ class ConversationStore:
                 conn.commit()
         except Exception as exc:
             logger.error("Failed to log correction: %s", exc, exc_info=True)
+
+    async def get_engagement(self, user_id: str) -> Optional[UserEngagement]:
+        """Return a single user's engagement row, if present."""
+        await self.initialize()
+        row = await asyncio.to_thread(self._get_engagement_sync, user_id)
+        return row
+
+    def _get_engagement_sync(self, user_id: str) -> Optional[UserEngagement]:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT * FROM user_engagement WHERE user_id = ?", (user_id,))
+                row = cursor.fetchone()
+                return self._row_to_engagement(row) if row else None
+        except Exception as exc:
+            logger.error("Failed to fetch engagement for %s: %s", user_id, exc, exc_info=True)
+            return None
 
     async def record_user_activity(
         self,
@@ -294,6 +343,10 @@ class ConversationStore:
         last_bot_message_at: Optional[datetime] = None,
         last_morning_ping_date: Optional[date] = None,
         reengagement_level: Optional[int] = None,
+        in_session_bot_turns: Optional[int] = None,
+        mood_score: Optional[float] = None,
+        last_weather_date: Optional[date] = None,
+        last_weather_summary: Optional[str] = None,
     ) -> None:
         """Update engagement fields for a user."""
         try:
@@ -317,6 +370,22 @@ class ConversationStore:
                 if reengagement_level is not None:
                     updates.append("reengagement_level = ?")
                     params.append(reengagement_level)
+
+                if in_session_bot_turns is not None:
+                    updates.append("in_session_bot_turns = ?")
+                    params.append(in_session_bot_turns)
+
+                if mood_score is not None:
+                    updates.append("mood_score = ?")
+                    params.append(mood_score)
+
+                if last_weather_date is not None:
+                    updates.append("last_weather_date = ?")
+                    params.append(last_weather_date.isoformat())
+
+                if last_weather_summary is not None:
+                    updates.append("last_weather_summary = ?")
+                    params.append(last_weather_summary)
 
                 params.append(user_id)
                 conn.execute(
@@ -372,7 +441,124 @@ class ConversationStore:
             last_bot_message_at=parse_datetime(row["last_bot_message_at"]),
             last_morning_ping_date=parse_date(row["last_morning_ping_date"]),
             reengagement_level=row["reengagement_level"] or 0,
+            in_session_bot_turns=row["in_session_bot_turns"] or 0,
+            mood_score=float(row["mood_score"]) if row["mood_score"] is not None else 0.6,
+            last_weather_date=parse_date(row["last_weather_date"]),
+            last_weather_summary=row["last_weather_summary"],
         )
+
+    async def reset_in_session_turns(
+        self,
+        user_id: str,
+        timezone_name: str,
+    ) -> None:
+        """Reset the in-session bot turns counter to zero."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            in_session_bot_turns=0,
+        )
+
+    async def set_in_session_turns(
+        self,
+        user_id: str,
+        timezone_name: str,
+        turns: int,
+    ) -> None:
+        """Set the in-session bot turns counter to a specific value."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            in_session_bot_turns=turns,
+        )
+
+    async def set_mood_score(
+        self,
+        user_id: str,
+        timezone_name: str,
+        mood_score: float,
+    ) -> None:
+        """Persist the latest computed mood score."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            mood_score=mood_score,
+        )
+
+    async def set_weather_cache(
+        self,
+        user_id: str,
+        timezone_name: str,
+        weather_date: date,
+        weather_summary: str,
+    ) -> None:
+        """Cache last weather info for a user (shared default for now)."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            last_weather_date=weather_date,
+            last_weather_summary=weather_summary,
+        )
+
+    async def prune_older_than_days(self, days: int) -> None:
+        """Delete conversation data older than the given number of days."""
+        await self.initialize()
+        await asyncio.to_thread(self._prune_older_than_days_sync, days)
+
+    def _prune_older_than_days_sync(self, days: int) -> None:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    "DELETE FROM conversation_messages WHERE created_at < datetime('now', ?)",
+                    (f'-{int(days)} days',),
+                )
+                conn.execute(
+                    "DELETE FROM conversation_corrections WHERE created_at < datetime('now', ?)",
+                    (f'-{int(days)} days',),
+                )
+                conn.commit()
+        except Exception as exc:
+            logger.error("Failed to prune old conversation data: %s", exc, exc_info=True)
+
+    async def get_correction_count(
+        self,
+        user_id: str,
+        error_type: str,
+        window_days: Optional[int] = None,
+    ) -> int:
+        """Return number of times a given error_type was logged for a user in window."""
+        await self.initialize()
+        return await asyncio.to_thread(self._get_correction_count_sync, user_id, error_type, window_days)
+
+    def _get_correction_count_sync(self, user_id: str, error_type: str, window_days: Optional[int]) -> int:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                if window_days is None:
+                    cursor = conn.execute(
+                        "SELECT COUNT(1) FROM conversation_corrections WHERE user_id = ? AND error_type = ?",
+                        (user_id, error_type),
+                    )
+                else:
+                    cursor = conn.execute(
+                        (
+                            "SELECT COUNT(1) FROM conversation_corrections "
+                            "WHERE user_id = ? AND error_type = ? AND created_at >= datetime('now', ?)"
+                        ),
+                        (user_id, error_type, f'-{int(window_days)} days'),
+                    )
+                row = cursor.fetchone()
+                return int(row[0]) if row and row[0] is not None else 0
+        except Exception as exc:
+            logger.error("Failed to count corrections: %s", exc, exc_info=True)
+            return 0
 
 
 # Global instance used throughout the bot

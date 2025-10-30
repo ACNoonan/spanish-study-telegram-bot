@@ -1,10 +1,7 @@
 # Spanish Tutor Bot - Development Roadmap
 
 ## 📋 Project Overview
-**Goal:** Create an engaging, AI-powered Spanish tutor bot that guides learners from B1 to B2 level through natural conversation, voice interaction, and visual content.
-
-
-
+**Goal:** Create an engaging, AI-powered Spanish tutor bot that guides learners along CEFR standard level progressions through natural conversation, voice interaction, and visual content.
 
 ## 💬 Phase 1: Core Conversation Features
 **Duration:** Week 2 | **Goal:** Context-aware tutoring with natural corrections
@@ -12,7 +9,7 @@
 ### Milestone 1.1: Conversation Memory System
 **Database Choice:**
 - **Development:** SQLite (simple, file-based)
-- **Production:** PostgreSQL (better for concurrent users) or Redis (fast, ephemeral)
+- **Production:** PostgreSQL (better for concurrent users) 
 
 **Schema Design:**
 ```sql
@@ -29,7 +26,7 @@ id, user_id, timestamp, error_type, incorrect_text, correct_form, grammar_topic
 **Implementation:**
 - DO NOT SQLAlchemy ORM for database abstraction, WE DO NOT NEED AN ORM
 - Implement conversation pruning (keep last 30 days)
-- Context window: last 20 messages (~2000 tokens)
+- Conversation Memory window: last 20 messages (~2000 tokens)
 - Add user_id based session management
 
 **Testing:**
@@ -37,6 +34,82 @@ id, user_id, timestamp, error_type, incorrect_text, correct_form, grammar_topic
 - [ ] Context window properly maintained
 - [ ] Database queries are optimized (< 50ms)
 - [ ] Handles new vs. returning users correctly
+
+---
+
+### Milestone 1.15: Conversational Cadence, Mood, and Lesson Injection
+
+**Behavior Overview:**
+- Several check‑ins per day; tone escalates if you haven't replied (day → week)
+- A "conversation" is active if you reply within 1 hour of the bot's last message
+- After the 2nd–3rd bot message in an active session, sneak in a Spanish micro‑lesson
+  - Format: short story snippet + 1–2 comprehension/opinion questions
+- Mood score depends on responsiveness status and today's weather
+
+**Data Model Additions:**
+- `user_profiles` (add fields): `last_seen_at`, `last_bot_message_at`, `in_session_bot_turns`, `mood_score`
+- New `user_engagement` table (optional): `user_id`, `streak_days`, `last_nudge_at`, `last_weather_date`, `last_weather_summary`
+
+**Scheduling/State:**
+- Use APScheduler (or a simple async loop) every 15 minutes to:
+  1) compute responsiveness buckets and mood,
+  2) send check‑ins when thresholds cross and cooldowns allow,
+  3) reset `in_session_bot_turns` if `now - last_seen_at > 1h`.
+
+**Mood Scoring:**
+```python
+def compute_mood_score(now, last_seen_at, weather):
+    # Baseline 0.6 = friendly
+    base = 0.6
+
+    # Responsiveness component (0..+0.3 or negative)
+    hours = (now - last_seen_at).total_seconds() / 3600 if last_seen_at else 999
+    if hours <= 1: resp = +0.25  # very responsive → more affectionate/playful
+    elif hours <= 12: resp = +0.10
+    elif hours <= 24: resp = -0.05  # "a little annoyed" teasing
+    elif hours <= 168: resp = -0.15  # 1–7 days → noticeably annoyed (but loving)
+    else: resp = -0.25  # > 7 days → mock-angry but supportive
+
+    # Weather component (-0.1..+0.1)
+    # Map: sunny/warm → +, rainy/cold → - (persona lives in Madrid)
+    wx = map_weather_to_mood_delta(weather)  # clamp [-0.1, +0.1]
+
+    return clamp01(base + resp + wx)
+```
+
+**Weather Integration:**
+- Source: Open‑Meteo (no API key) for Madrid by default, or per‑user location later
+- Cache daily weather in DB to avoid per‑message fetches
+
+**Lesson Injection Logic (Stories & Questions):**
+```python
+def maybe_inject_micro_lesson(state, messages):
+    # After 2nd or 3rd bot turn in an active hour-long session
+    if state.in_session_bot_turns in (2, 3):
+        story = lesson_bank.pick_story_snippet(level=state.level)
+        questions = lesson_bank.build_questions(story, kind=["comprensión", "opinión"])
+        return compose_response_with_story(story, questions)
+    return None
+```
+
+**Nudge Cadence (examples, configurable):**
+- 6h inactivity: light ping
+- 24h: teasing "mock‑annoyed" check‑in
+- 48h: stronger personality ping (still supportive)
+- 7d: warm re‑engagement with low‑friction prompt
+
+**Implementation Notes:**
+- Update `src/bot.py` handlers to track `last_seen_at` and increment `in_session_bot_turns`
+- Add `compute_mood_score` and inject tone into system prompt/response style
+- Centralize nudges in a scheduler task that respects per‑user cooldowns and DND windows
+- Story/Question content can be templated in `config/prompts/` for level‑appropriate snippets
+
+**Testing:**
+- [ ] Session resets after >1h without reply
+- [ ] Micro‑lesson appears on 2nd–3rd bot turn in active session
+- [ ] Nudge cadence triggers at 6h/24h/48h/7d with cooldowns respected
+- [ ] Mood shifts reflect responsiveness and weather inputs
+- [ ] Tone stays on‑brand (teasing, not hostile)
 
 ---
 

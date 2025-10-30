@@ -24,6 +24,7 @@ from src.llm_client import llm_client
 from src.personality import personality_system
 from src.conversation_store import conversation_store, CorrectionEntry, UserEngagement
 from src.correction import correction_analyzer, CorrectionSuggestion
+from src.weather import fetch_daily_weather_summary
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +113,18 @@ class SpanishTutorBot:
         response_text = None
         correction_suggestions: list[CorrectionSuggestion] = []
         try:
+            # Fetch current engagement state
+            engagement = await conversation_store.get_engagement(user_id) or UserEngagement(
+                user_id=user_id,
+                timezone=timezone_name,
+                last_user_message_at=None,
+                last_bot_message_at=None,
+                last_morning_ping_date=None,
+                reengagement_level=0,
+                in_session_bot_turns=0,
+                mood_score=0.6,
+            )
+
             # Build conversation messages for LLM
             system_prompt = personality_system.get_system_prompt()
 
@@ -121,8 +134,17 @@ class SpanishTutorBot:
             if correction_suggestions:
                 hint_lines = []
                 for suggestion in correction_suggestions:
+                    # Count prior occurrences to trigger explicit teaching after 3rd time
+                    prior_count = await conversation_store.get_correction_count(
+                        user_id, suggestion.error_type, window_days=14
+                    )
+                    explicit_note = (
+                        " Añade una explicación explícita y corta (1-2 frases) porque es un error repetido."
+                        if prior_count >= 2
+                        else ""
+                    )
                     hint_lines.append(
-                        f"- Tipo: {suggestion.error_type}; original: \"{suggestion.original_text}\"; corrección: \"{suggestion.corrected_text}\". Explica brevemente: {suggestion.explanation}"
+                        f"- Tipo: {suggestion.error_type}; original: \"{suggestion.original_text}\"; corrección: \"{suggestion.corrected_text}\". Explica brevemente: {suggestion.explanation}.{explicit_note}"
                     )
                 correction_hint = (
                     "\nCORRECCIONES DETECTADAS:\n"
@@ -132,6 +154,36 @@ class SpanishTutorBot:
                 )
                 system_prompt += correction_hint
             
+            # Compute session/mood
+            in_active_session = False
+            if engagement.last_bot_message_at:
+                in_active_session = (message_date - engagement.last_bot_message_at) <= timedelta(hours=1)
+
+            # Compute mood score (including cached weather if present)
+            now_utc = datetime.now(timezone.utc)
+            last_seen_at = engagement.last_user_message_at
+            hours_since_seen = (
+                (now_utc - last_seen_at).total_seconds() / 3600.0 if last_seen_at else 999
+            )
+            weather_delta = self._map_weather_to_mood_delta(engagement.last_weather_summary)
+            mood_score = self._compute_mood_score(hours_since_seen, weather_delta)
+            mood_descriptor = self._describe_mood(mood_score)
+            system_prompt += (
+                f"\n\nESTADO EMOCIONAL ACTUAL:\n- Tu humor es: {mood_descriptor} (mood_score={mood_score:.2f}). "
+                "Ajusta el tono y nivel de cariño de forma acorde, sin perder profesionalidad."
+            )
+
+            # Micro-lesson injection after 2nd–3rd bot turn in active session
+            next_turn_index = (engagement.in_session_bot_turns + 1) if in_active_session else 1
+            lesson_injection = None
+            if in_active_session and next_turn_index in (2, 3):
+                lesson_injection = self._build_micro_lesson_snippet()
+                system_prompt += (
+                    "\n\nMICRO-LECCIÓN (incluir de forma natural, sin anunciarlo):\n"
+                    f"Historia breve: {lesson_injection['story']}\n"
+                    f"Haz 1–2 preguntas: {', '.join(lesson_injection['questions'])}"
+                )
+
             history_messages = await conversation_store.get_recent_messages(user_id)
 
             messages = [{"role": "system", "content": system_prompt}]
@@ -184,6 +236,14 @@ class SpanishTutorBot:
                         timezone_name,
                         datetime.now(timezone.utc),
                     )
+
+                    # Update session turns and mood score
+                    if in_active_session:
+                        new_turns = engagement.in_session_bot_turns + 1
+                    else:
+                        new_turns = 1
+                    await conversation_store.set_in_session_turns(user_id, timezone_name, new_turns)
+                    await conversation_store.set_mood_score(user_id, timezone_name, mood_score)
             except Exception as store_error:
                 logger.error(
                     "Failed to persist conversation messages for user %s: %s",
@@ -257,6 +317,14 @@ class SpanishTutorBot:
             ENGAGEMENT_CHECK_INTERVAL_SECONDS,
         )
 
+        # Daily prune of old conversation data (keep last 30 days)
+        job_queue.run_repeating(
+            self._prune_tick,
+            interval=24 * 60 * 60,
+            first=10,
+            name="prune_old_conversations",
+        )
+
     async def _engagement_tick(self, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Periodic engagement check for morning pings and inactivity reminders.
@@ -281,6 +349,27 @@ class SpanishTutorBot:
 
             local_now = now_utc.astimezone(zone)
             user_chat_id = int(engagement.user_id)
+
+            # Daily weather cache (Madrid default for now)
+            if engagement.last_weather_date != local_now.date():
+                try:
+                    weather = await fetch_daily_weather_summary()
+                    if weather is not None:
+                        category, temp_c = weather
+                        summary = f"{category}|{temp_c:.1f}"
+                        await conversation_store.set_weather_cache(
+                            str(user_chat_id), timezone_name, local_now.date(), summary
+                        )
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.debug("Weather update failed for %s: %s", user_chat_id, exc)
+
+            # Reset session turns if user has been inactive for > 1 hour
+            last_seen = engagement.last_interaction
+            if last_seen and (now_utc - last_seen) > timedelta(hours=1) and engagement.in_session_bot_turns:
+                try:
+                    await conversation_store.reset_in_session_turns(str(user_chat_id), timezone_name)
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.debug("Failed to reset in-session turns for %s: %s", user_chat_id, exc)
 
             await self._maybe_send_morning_message(
                 context,
@@ -378,6 +467,92 @@ class SpanishTutorBot:
         configured timezone but this hook allows future per-user overrides.
         """
         return DEFAULT_USER_TIMEZONE
+
+    async def _prune_tick(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Periodic pruning of old conversation data (keep last 30 days)."""
+        try:
+            await conversation_store.prune_older_than_days(30)
+            logger.info("Pruned conversation data older than 30 days")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("Failed to prune conversation data: %s", exc, exc_info=True)
+
+    def _compute_mood_score(self, hours_since_seen: float, weather_delta: float) -> float:
+        """Compute mood score in [0,1] based on responsiveness and weather delta."""
+        base = 0.6
+        if hours_since_seen <= 1:
+            resp = 0.25
+        elif hours_since_seen <= 12:
+            resp = 0.10
+        elif hours_since_seen <= 24:
+            resp = -0.05
+        elif hours_since_seen <= 168:
+            resp = -0.15
+        else:
+            resp = -0.25
+
+        wx = max(-0.1, min(0.1, weather_delta))
+        score = base + resp + wx
+        return max(0.0, min(1.0, score))
+
+    def _describe_mood(self, score: float) -> str:
+        if score >= 0.8:
+            return "muy cariñosa y juguetona"
+        if score >= 0.6:
+            return "amistosa y cariñosa"
+        if score >= 0.4:
+            return "neutral con un toque de picardía"
+        if score >= 0.2:
+            return "ligeramente molesta pero cariñosa"
+        return "un poco distante (sin perder calidez)"
+
+    def _build_micro_lesson_snippet(self) -> dict:
+        """Return a simple micro-lesson snippet with a story and questions."""
+        story = (
+            "Ayer, después de trabajar, pasé por el Retiro y me encontré con un amigo. "
+            "Quería que me acompañara a tomar algo, pero él tenía que estudiar."
+        )
+        questions = [
+            "¿Qué sueles hacer tú después de trabajar?",
+            "¿Hay algo que quieras hacer hoy? (usa el subjuntivo si puedes)",
+        ]
+        return {"story": story, "questions": questions}
+
+    def _map_weather_to_mood_delta(self, summary: str | None) -> float:
+        """Map cached weather summary to a mood delta in [-0.1, 0.1]."""
+        if not summary:
+            return 0.0
+        try:
+            parts = summary.split("|")
+            category = parts[0]
+            temp_c = float(parts[1]) if len(parts) > 1 else 20.0
+        except Exception:
+            category = summary
+            temp_c = 20.0
+
+        cat_map = {
+            "clear": 0.08,
+            "mainly_clear": 0.06,
+            "partly_cloudy": 0.02,
+            "overcast": -0.02,
+            "fog": -0.04,
+            "drizzle": -0.05,
+            "rain": -0.08,
+            "rain_showers": -0.06,
+            "snow": -0.08,
+            "snow_showers": -0.08,
+            "thunderstorm": -0.10,
+        }
+        delta = cat_map.get(category, 0.0)
+
+        # Small adjustment for temperature comfort (Madrid baseline ~20C)
+        if temp_c >= 28:
+            delta -= 0.02
+        elif temp_c <= 8:
+            delta -= 0.02
+        elif 18 <= temp_c <= 24:
+            delta += 0.02
+
+        return max(-0.1, min(0.1, delta))
 
 
 def main():
