@@ -3,100 +3,8 @@
 ## 📋 Project Overview
 **Goal:** Create an engaging, AI-powered Spanish tutor bot that guides learners from B1 to B2 level through natural conversation, voice interaction, and visual content.
 
-**Target User:** Intermediate Spanish learner seeking B1→B2 progression  
-**Deployment:** Telegram bot with cloud LLM → self-hosted migration path  
-**Estimated Timeline:** 16 weeks MVP, ongoing iteration
 
----
 
-## 🎯 Phase 0: Foundation Setup
-**Duration:** Week 1 | **Goal:** Working conversational bot with personality
-
-### Milestone 0.1: Telegram Bot Infrastructure
-**Tasks:**
-- Set up Python 3.10+ environment with `python-telegram-bot>=20.0`
-- Implement basic message handling (echo, commands: /start, /help)
-- Configure webhook or polling (polling recommended for dev)
-
-**Testing:**
-- [ ] Bot receives and responds to text messages
-- [ ] Command handling works correctly
-- [ ] Error handling for network issues
-
-**Tech Stack:**
-- `python-telegram-bot` library (async)
-- `python-dotenv` for config management
-
----
-
-### Milestone 0.2: LLM Integration
-**Tasks:**
-- Set up OpenRouter account (https://openrouter.ai)
-- Implement API wrapper with retry logic and rate limiting
-- Start with cost-effective model for testing
-- Add streaming response support (optional, better UX)
-
-**Model Recommendations:**
-| Model | Cost/1M tokens | Pros | Cons |
-|-------|---------------|------|------|
-| Meta Llama 3 8B | ~$0.10 | Fast, cheap | Less creative |
-| Nous Hermes 2 Mixtral 8x7B | ~$0.50 | Good balance | Medium cost |
-| GPT-4o-mini | ~$0.60 | High quality | OpenAI dependency |
-
-**Start with:** Meta Llama 3 8B for development, upgrade to Mixtral for personality
-
-**Testing:**
-- [ ] API calls succeed with proper error handling
-- [ ] Response latency < 3 seconds
-- [ ] Spanish output is grammatically correct
-
-**Implementation Notes:**
-- Use environment variables for API keys (never commit!)
-- Implement exponential backoff for rate limits
-- Log all API calls for cost tracking
-
----
-
-### Milestone 0.3: Character Personality System
-**Tasks:**
-- Design character profile (save as `character_profile.yaml`)
-- Write layered system prompt (personality + tutoring role)
-- Implement dynamic prompt injection based on context
-- Add personality consistency checks
-
-**Character Design Elements:**
-```yaml
-name: "Sofía"
-age: 28
-location: "Madrid, España"
-background: "Language teacher, loves tapas and flamenco"
-personality_traits:
-  - flirty_level: 6/10 (context-aware)
-  - humor: witty, uses Spanish cultural references
-  - patience: high (it's her job!)
-  - formality: informal (uses tú, not usted)
-speech_patterns:
-  - Uses "cariño", "guapo/a" occasionally
-  - Mixes encouragement with gentle correction
-  - Asks about your day/interests
-  - Shares "her day" in Madrid
-```
-
-**System Prompt Structure:**
-1. **Core Identity** (always present)
-2. **Tutoring Behavior** (correction style, encouragement)
-3. **Current Lesson Context** (injected dynamically)
-4. **Conversation History** (last 10-20 messages)
-
-**Testing:**
-- [ ] Personality feels consistent across conversations
-- [ ] Character stays in Spanish tutor role
-- [ ] Flirtiness is appropriate, not creepy
-- [ ] References Spanish culture naturally
-
-**Deliverable:** Engaging chatbot with consistent personality that teaches Spanish conversationally
-
----
 
 ## 💬 Phase 1: Core Conversation Features
 **Duration:** Week 2 | **Goal:** Context-aware tutoring with natural corrections
@@ -119,7 +27,7 @@ id, user_id, timestamp, error_type, incorrect_text, correct_form, grammar_topic
 ```
 
 **Implementation:**
-- Use SQLAlchemy ORM for database abstraction
+- DO NOT SQLAlchemy ORM for database abstraction, WE DO NOT NEED AN ORM
 - Implement conversation pruning (keep last 30 days)
 - Context window: last 20 messages (~2000 tokens)
 - Add user_id based session management
@@ -162,59 +70,13 @@ id, user_id, timestamp, error_type, incorrect_text, correct_form, grammar_topic
 - Subjunctive mood triggers
 - Preposition usage
 
-**Implementation:**
-```python
-# Example error detection flow
-1. Store user message in DB
-2. Check for error patterns (async, non-blocking)
-3. Log errors to database
-4. Decision: correct now or accumulate for later?
-5. Generate response with natural correction
-```
-
 **Testing:**
 - [ ] Corrections feel natural, not pedantic
 - [ ] Bot doesn't over-correct (max 1-2 per message)
 - [ ] Repeated errors trigger explanations
 - [ ] Error logs populate correctly
 
----
 
-### Milestone 1.3: Enhanced UX with Telegram Features
-**Native Features to Implement:**
-
-1. **Typing Indicators**
-   ```python
-   await context.bot.send_chat_action(
-       chat_id=update.effective_chat.id,
-       action=ChatAction.TYPING
-   )
-   ```
-
-2. **Message Reactions** (Telegram Bot API 6.0+)
-   - React to user's correct Spanish with 👏, ❤️, 🔥
-   - React to complex sentences with 🤯, 🎉
-   - Use contextually (don't overdo it)
-
-3. **Text Formatting**
-   - **Bold** for vocabulary emphasis
-   - *Italic* for grammar notes
-   - `Code blocks` for conjugation tables
-   - [Links] to resources
-
-4. **Interactive Elements (Future):**
-   - Inline keyboards for quiz responses
-   - Reply keyboards for quick responses
-
-**Testing:**
-- [ ] Typing indicator appears before response
-- [ ] Reactions are contextually appropriate
-- [ ] Formatting enhances readability
-- [ ] No formatting breaks message display
-
-**Deliverable:** Smart tutor that remembers context, corrects naturally, and feels human
-
----
 
 ## 📚 Phase 2: Structured Curriculum System
 **Duration:** Week 3 | **Goal:** CEFR B1-aligned lesson progression
@@ -762,15 +624,10 @@ async def transcribe_voice(voice_file):
 
 **Conversation Flow:**
 1. User sends voice note
-2. Download and transcribe with Whisper
+2. Download and transcribe
 3. Process as text message (error detection, response generation)
-4. Respond with voice (mirror medium)
+4. Respond with voice (mirror medium) 
 5. Optionally send text transcript for clarity
-
-**Smart Transcription:**
-- Show "🎧 Escuchando..." while processing
-- Display transcript after processing: "Escuché: [transcript]"
-- Allows user to correct if misheard
 
 ---
 
@@ -822,57 +679,7 @@ no 'quelo'. Escucha: [voice example of 'quiero']
 
 ---
 
-## 🎨 Phase 7: Visual Content Integration
-**Duration:** Weeks 9-10 | **Goal:** Character consistency through images
-
-### Milestone 7.1: Character Image Generation Setup
-
-**Service Options:**
-
-| Platform | Model | Cost/Image | Quality | Training | Notes |
-|----------|-------|-----------|---------|----------|-------|
-| **Replicate** | FLUX.1 | ~$0.003 | Excellent | LoRA support | Best for consistency |
-| **Midjourney** | v6 | $0.04-0.08 | Excellent | No LoRA | Manual, no API |
-| **Stable Diffusion** | SDXL | Free (self-host) | Very Good | LoRA support | Requires GPU |
-| **OpenAI** | DALL-E 3 | $0.04 | Good | No training | Easy integration |
-
-**Recommendation:** **Replicate + FLUX LoRA** for character consistency, fallback to DALL-E 3 for generic images
-
-**LoRA Training Process:**
-1. **Reference Image Collection** (20-30 images):
-   - Consistent character appearance
-   - Various poses, expressions, settings
-   - High quality, clear face
-   - Diverse lighting and angles
-
-2. **Training on Replicate:**
-   ```python
-   # Use ostris/flux-dev-lora-trainer
-   training = replicate.trainings.create(
-       version="ostris/flux-dev-lora-trainer:version",
-       input={
-           "input_images": "https://your-images.zip",
-           "trigger_word": "sofia_madrid",
-           "steps": 1000,
-           "learning_rate": 0.0004
-       }
-   )
-   ```
-
-3. **Testing & Iteration:**
-   - Generate 20-30 test images
-   - Check consistency across scenarios
-   - Retrain if needed with adjusted parameters
-
-**Character Design Consistency:**
-- Age: Late 20s
-- Appearance: Spanish features, dark hair, warm eyes
-- Style: Casual-chic, Madrid fashion
-- Settings: Madrid locations (cafés, parks, apartments)
-
----
-
-### Milestone 7.2: Contextual Image Generation
+### Milestone 7.2: Contextual Image Processing
 
 **When to Generate Images:**
 - **User requests:** "Send me a photo", "What do you look like?"
@@ -932,63 +739,9 @@ async def generate_and_send_image(context, chat_id):
 
 ---
 
-### Milestone 7.3: Image-Based Learning
-
-**User Sends Image → Bot Describes (Spanish):**
-```python
-# Use GPT-4 Vision or similar
-def describe_image(image_url):
-    response = openai.ChatCompletion.create(
-        model="gpt-4-vision-preview",
-        messages=[{
-            "role": "system",
-            "content": "Describe esta imagen en español, nivel B1-B2"
-        }, {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "¿Qué ves?"},
-                {"type": "image_url", "image_url": image_url}
-            ]
-        }]
-    )
-    return response.choices[0].message.content
-```
-
-**Learning Activities with Images:**
-1. **Visual Vocabulary:**
-   - Bot sends image: "Describe lo que ves"
-   - User describes in Spanish
-   - Bot provides vocabulary: "¡Bien! También puedes decir 'edificio' o 'rascacielos'"
-
-2. **Cultural Photo Discussions:**
-   - Bot shares Madrid landmarks
-   - Explains cultural context
-   - "Esta es la Plaza Mayor. ¿Sabías que...?"
-
-3. **Spot the Difference Game:**
-   - Two similar images
-   - User describes differences in Spanish
-   - Grammar: comparative forms, descriptions
-
-4. **Story from Images:**
-   - 3-4 sequential images
-   - User creates story in past tense
-   - Practices preterite/imperfect
-
-**Testing:**
-- [ ] Generated images are consistent with character
-- [ ] Images match conversational context
-- [ ] Bot accurately describes user-sent images
-- [ ] Visual learning activities are engaging
-
-**Deliverable:** Immersive visual experience with consistent character appearance
-
----
-
 ## 🚀 Phase 8-10: Polish & Scale
-**Duration:** Weeks 11-16 | **Goal:** Production-ready system with advanced features
 
-### Phase 8: Advanced Engagement (Weeks 11-12)
+### Phase 8: Advanced Engagement 
 
 **Multimodal Content:**
 - Grammar infographics (generate or curate)
@@ -1015,61 +768,16 @@ def describe_image(image_url):
 
 ---
 
-### Phase 9: Self-Hosted Migration (Weeks 13-14)
 
-**Local LLM Setup:**
+### Phase 10: Production Polish
 
-| Option | Model | RAM Needed | Performance | Difficulty |
-|--------|-------|-----------|-------------|-----------|
-| **KoboldCpp** | Llama 3 8B Q5 | 8 GB | Good | Easy |
-| **Ollama** | Mistral 7B | 6 GB | Good | Very Easy |
-| **LM Studio** | Mixtral 8x7B | 48 GB | Excellent | Easy |
-| **vLLM** | Llama 3 70B | 80 GB | Excellent | Medium |
-
-**Recommendation for home server:**
-- **Start:** Ollama + Mistral 7B (easiest setup)
-- **Upgrade:** LM Studio + Mixtral 8x7B if you have RAM
-- **Production:** vLLM if running on cloud GPU
-
-**Migration Strategy:**
-```python
-# Hybrid approach: Local + Cloud fallback
-def get_llm_response(prompt):
-    try:
-        # Try local first (free)
-        response = local_llm.generate(prompt, timeout=5)
-        return response
-    except (TimeoutError, ConnectionError):
-        # Fallback to cloud (paid)
-        response = openrouter.generate(prompt)
-        log_fallback("Local LLM unavailable, used cloud")
-        return response
-```
-
-**Cost Optimization:**
-- **LLM:** 80% local (free), 20% cloud fallback ($5-10/month)
-- **Voice TTS:** Cache common phrases, use cheaper service for routine messages
-- **Voice STT:** Already cheap ($0.006/min), keep as-is
-- **Images:** Cache generated images, reuse when contextually appropriate
-- **Total estimated cost:** $15-30/month vs $100+/month cloud-only
-
----
-
-### Phase 10: Production Polish (Weeks 15-16)
-
-**Bug Fixes & Optimization:**
-- [ ] Edge case handling (empty messages, errors, etc.)
-- [ ] Performance optimization (database queries, API calls)
-- [ ] Error recovery and graceful degradation
-- [ ] Comprehensive logging and monitoring
-
-**B2 Curriculum Preparation:**
-- Design 16-week B2 syllabus (advanced grammar, literature)
+**Curriculum Preparation:**
+- Design an entire CEFR curriculum
 - Passive voice, complex subjunctive, idiomatic expressions
 - Create transition assessment at end of B1
 
 **User Experience Refinements:**
-- **Onboarding flow:** Interactive setup when user first starts
+- **Onboarding flow:** Interactive setup & testing for CEFR level when user first starts
 - **Help system:** Comprehensive `/help` command
 - **Settings:** User preferences (voice on/off, difficulty, topics)
 - **Privacy:** Data export, deletion options (GDPR compliance)
@@ -1083,96 +791,9 @@ def get_llm_response(prompt):
 - [ ] Documentation for maintenance
 - [ ] Cost tracking and budgets set
 
-**Deliverable:** Production-ready B1 Spanish tutor with path to B2
-
 ---
 
-## 📊 Technical Stack Summary
 
-### Core Technologies
-```yaml
-Language: Python 3.10+
-Bot Framework: python-telegram-bot (async)
-Database: 
-  - Development: SQLite
-  - Production: PostgreSQL or Redis
-ORM: SQLAlchemy
-Scheduling: APScheduler or Celery
-NLP: spaCy (Spanish model)
-Environment: python-dotenv
-```
-
-### External APIs & Services
-```yaml
-LLM:
-  Primary: OpenRouter (Mixtral/Llama)
-  Fallback: Self-hosted (Ollama/LM Studio)
-  
-Voice:
-  TTS: ElevenLabs or OpenAI TTS
-  STT: OpenAI Whisper
-  
-Images:
-  Generation: Replicate (FLUX LoRA)
-  Vision: GPT-4 Vision
-  
-Hosting:
-  Bot: Any VPS (DigitalOcean, Linode, etc.)
-  Database: Same VPS or managed service
-```
-
-### Development Tools
-```yaml
-Version Control: Git
-Dependency Management: pip + requirements.txt
-Testing: pytest
-Logging: Python logging + file rotation
-Monitoring: Sentry (errors), Custom dashboards
-```
-
----
-
-## 💰 Cost Estimates
-
-### Cloud-Only Setup (Month 1-2)
-| Service | Usage | Cost |
-|---------|-------|------|
-| OpenRouter (LLM) | 5M tokens/mo | $25-50 |
-| ElevenLabs (TTS) | 50k chars/mo | $15 |
-| Whisper (STT) | 100 min/mo | $0.60 |
-| Replicate (Images) | 200 images/mo | $0.60 |
-| VPS Hosting | 2GB RAM | $12 |
-| **Total** | | **$53-78/mo** |
-
-### Hybrid Setup (Month 3+)
-| Service | Usage | Cost |
-|---------|-------|------|
-| OpenRouter (fallback) | 1M tokens/mo | $5-10 |
-| Self-hosted LLM | 4M tokens/mo | $0 (electricity) |
-| OpenAI TTS (cheaper) | 50k chars/mo | $0.75 |
-| Whisper (STT) | 100 min/mo | $0.60 |
-| Replicate (Images) | 200 images/mo | $0.60 |
-| VPS Hosting | 8GB RAM | $40 |
-| **Total** | | **$47-52/mo** |
-
-### Optimization Opportunities
-- Cache frequent LLM responses (greetings, common corrections)
-- Reuse generated images when contextually appropriate
-- Use cheaper TTS for routine messages, premium for special moments
-- Implement request throttling to prevent cost spikes
-
----
-
-## ⚠️ Risks & Mitigations
-
-### Technical Risks
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| API rate limits | Service interruption | Implement exponential backoff, fallback services |
-| LLM hallucinations | Incorrect Spanish | Validation layer, error detection system |
-| High API costs | Budget overrun | Cost monitoring, alerts, hybrid setup |
-| Character inconsistency | Poor UX | LoRA training, consistent prompts |
-| Data loss | Lost progress | Automated backups, database replication |
 
 ### Learning Experience Risks
 | Risk | Impact | Mitigation |
@@ -1182,36 +803,6 @@ Monitoring: Sentry (errors), Custom dashboards
 | Boring content | User churn | Variety engine, gamification, personality |
 | Inappropriate content | User discomfort | Content filters, adjustable flirtiness |
 | Privacy concerns | Trust issues | GDPR compliance, clear data policy |
-
----
-
-## 📈 Success Metrics
-
-### Key Performance Indicators (KPIs)
-
-**Engagement Metrics:**
-- Daily active usage (target: 5+ messages/day)
-- Streak length (target: median 14+ days)
-- Response rate to morning messages (target: 70%+)
-- Voice message adoption (target: 30%+ of conversations)
-
-**Learning Metrics:**
-- Error rate reduction (target: -5% per month)
-- Vocabulary growth (target: 50+ new words/month mastered)
-- Grammar complexity increase (target: subjunctive usage up 20%/month)
-- Lesson completion rate (target: 80%+ complete 16 weeks)
-
-**Quality Metrics:**
-- User satisfaction (periodic surveys, target: 4.5/5)
-- Correction acceptance rate (target: 90%+ implement corrections)
-- Feature adoption (voice, images, games - target: 60%+ try each)
-- Pronunciation improvement (target: measurable progress)
-
-**Technical Metrics:**
-- API response time (target: < 3 seconds)
-- Uptime (target: 99.5%+)
-- Cost per user per month (target: < $50 hybrid setup)
-- Error rate (target: < 1% unhandled errors)
 
 ---
 
@@ -1241,50 +832,12 @@ Monitoring: Sentry (errors), Custom dashboards
 
 ---
 
-## 🔄 Ongoing Maintenance
-
-### Weekly Tasks
-- Monitor API costs and usage
-- Review error logs
-- Update current events / cultural content
-- Check user feedback
-
-### Monthly Tasks
-- Analyze learning metrics and success rates
-- Update curriculum based on user performance
-- Test and update to new API versions
-- Backup and verify database integrity
-- Review and optimize costs
-
-### Quarterly Tasks
-- Major feature additions based on user feedback
-- Curriculum expansion (new topics, B2 prep)
-- Performance optimization sprint
-- Security audit and updates
-
-### Future Expansion Ideas
-- **Multiple users:** Scale beyond single user
-- **Additional languages:** Portuguese, Italian, French
-- **Group learning:** Multiple users practice together
-- **Live tutoring:** Schedule sessions with human tutors
-- **Mobile app:** Native app with offline capabilities
-- **AR integration:** Visual vocabulary in real-world contexts
-
----
-
 ## 📚 Resources & References
 
 ### Spanish Learning Standards
 - [CEFR Guidelines](https://www.coe.int/en/web/common-european-framework-reference-languages)
 - [Instituto Cervantes Curriculum](https://cvc.cervantes.es/)
 - Spanish Frequency Dictionary (1000-5000 most common words)
-
-### Technical Documentation
-- [python-telegram-bot Documentation](https://docs.python-telegram-bot.org/)
-- [OpenRouter API Docs](https://openrouter.ai/docs)
-- [ElevenLabs API Docs](https://elevenlabs.io/docs)
-- [OpenAI Whisper](https://platform.openai.com/docs/guides/speech-to-text)
-- [Replicate FLUX Documentation](https://replicate.com/black-forest-labs)
 
 ### Spaced Repetition Research
 - SuperMemo Algorithm (SM-2)
@@ -1295,10 +848,8 @@ Monitoring: Sentry (errors), Custom dashboards
 
 ## 🎯 Final Notes
 
-**Philosophy:** This bot should feel like texting a real person who happens to be a great Spanish teacher. The technical complexity should be invisible to the user - they just experience a fun, engaging, helpful companion who makes learning Spanish addictive.
+**Philosophy:** This bot should reach out proactively like an attached, possesive latina. Language learning will be snuck in through casual, suggestive conversation.
 
 **Flexibility:** This roadmap is ambitious but flexible. Prioritize based on what keeps you (the user) most engaged. If voice feels more important than images, swap the order. If gamification isn't motivating, focus on conversation quality instead.
-
-**Iteration:** Start with MVP, use it daily, and let real usage inform what to build next. The best features will emerge from actual conversations and pain points.
 
 **Have fun!** Language learning should be enjoyable. If building or using this bot ever feels like a chore, step back and remember the goal: conversational fluency through genuine connection and engagement. 🇪🇸💬✨
