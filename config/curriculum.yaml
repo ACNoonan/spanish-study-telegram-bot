@@ -1,0 +1,499 @@
+# 16-week B1 to B2 Spanish Curriculum
+# Based on CEFR standards and ROADMAP.md Milestone 2.1
+
+lessons:
+  week_1:
+    title: "Subjuntivo Presente - Introducción"
+    grammar_topics:
+      - subjunctive_intro
+      - present_subjunctive_regular
+    grammar_notes: |
+      El subjuntivo se usa para expresar deseos, emociones, dudas y situaciones hipotéticas.
+      Verbos regulares: hablar → hable, comer → coma, vivir → viva
+    vocabulary_theme: "emotions_desires"
+    vocabulary_words:
+      - word: "esperar"
+        translation: "to hope/wait"
+        example: "Espero que tengas un buen día"
+      - word: "desear"
+        translation: "to wish/desire"
+        example: "Deseo que todo vaya bien"
+      - word: "querer"
+        translation: "to want"
+        example: "Quiero que vengas conmigo"
+      - word: "alegrarse"
+        translation: "to be happy"
+        example: "Me alegro de que estés aquí"
+      - word: "temer"
+        translation: "to fear"
+        example: "Temo que llueva mañana"
+    conversation_prompts:
+      - "¿Qué esperas que pase esta semana?"
+      - "¿Hay algo que desees hacer pronto?"
+      - "¿Te alegras de que sea viernes?"
+    cultural_topic: "Spanish greetings and farewells"
+
+  week_2:
+    title: "Subjuntivo Presente - Práctica"
+    grammar_topics:
+      - present_subjunctive_irregular
+      - subjunctive_triggers_intro
+    grammar_notes: |
+      Verbos irregulares comunes: ser → sea, estar → esté, ir → vaya, saber → sepa, haber → haya
+    vocabulary_theme: "emotions_desires"
+    vocabulary_words:
+      - word: "ojalá"
+        translation: "I hope/wish"
+        example: "Ojalá que haga sol mañana"
+      - word: "dudar"
+        translation: "to doubt"
+        example: "Dudo que él venga hoy"
+      - word: "necesitar"
+        translation: "to need"
+        example: "Necesito que me ayudes"
+      - word: "preferir"
+        translation: "to prefer"
+        example: "Prefiero que lleguemos temprano"
+      - word: "sentir"
+        translation: "to feel/regret"
+        example: "Siento que estés enfermo"
+    conversation_prompts:
+      - "¿Qué ojalá que pase en tu vida?"
+      - "¿Necesitas que alguien te ayude con algo?"
+      - "¿Prefieres que salgamos hoy o mañana?"
+    cultural_topic: "Madrid cafe culture and sobremesa"
+
+  week_3:
+    title: "WEIRDO - Desencadenantes del Subjuntivo"
+    grammar_topics:
+      - weirdo_verbs
+      - subjunctive_with_doubt
+    grammar_notes: |
+      WEIRDO: Wishes, Emotions, Impersonal expressions, Recommendations, Doubt/Denial, Ojalá
+    vocabulary_theme: "opinions_doubt"
+    vocabulary_words:
+      - word: "creer"
+        translation: "to believe"
+        example: "No creo que sea verdad"
+      - word: "pensar"
+        translation: "to think"
+        example: "¿Piensas que llueva?"
+      - word: "recomendar"
+        translation: "to recommend"
+        example: "Recomiendo que visites el Retiro"
+      - word: "sugerir"
+        translation: "to suggest"
+        example: "Sugiero que probemos tapas"
+      - word: "negar"
+        translation: "to deny"
+        example: "Niego que él tenga razón"
+    conversation_prompts:
+      - "¿Crees que el clima cambie esta semana?"
+      - "¿Qué me recomiendas que haga en Madrid?"
+      - "¿Niegas que te guste el chocolate?"
+    cultural_topic: "Spanish tapas culture and ordering at bars"
+
+  week_4:
+    title: "Subjuntivo - Consolidación"
+    grammar_topics:
+      - subjunctive_practice_mixed
+      - impersonal_expressions
+    grammar_notes: |
+      Expresiones impersonales: Es importante que, Es necesario que, Es posible que
+    vocabulary_theme: "opinions_doubt"
+    vocabulary_words:
+      - word: "importar"
+        translation: "to matter/be important"
+        example: "Me importa que seas feliz"
+      - word: "molestar"
+        translation: "to bother"
+        example: "Me molesta que hable alto"
+      - word: "encantar"
+        translation: "to love (something)"
+        example: "Me encanta que cocines para mí"
+      - word: "sorprender"
+        translation: "to surprise"
+        example: "Me sorprende que no lo sepas"
+      - word: "parecer"
+        translation: "to seem"
+        example: "Me parece que tengas razón"
+    conversation_prompts:
+      - "¿Qué te importa que pase en tu vida?"
+      - "¿Te molesta que la gente llegue tarde?"
+      - "¿Te sorprende que hable español?"
+    cultural_topic: "Spanish daily schedule and meal times"
+
+  week_5:
+    title: "Por vs Para - Introducción"
+    grammar_topics:
+      - por_vs_para_basic
+      - por_duration_exchange
+    grammar_notes: |
+      POR: duración, intercambio, causa, movimiento a través
+      PARA: destino, propósito, recipiente, deadline
+    vocabulary_theme: "travel_movement"
+    vocabulary_words:
+      - word: "viajar"
+        translation: "to travel"
+        example: "Voy a viajar por España"
+      - word: "caminar"
+        translation: "to walk"
+        example: "Camino por el parque"
+      - word: "pasear"
+        translation: "to stroll"
+        example: "Me gusta pasear por Madrid"
+      - word: "conducir"
+        translation: "to drive"
+        example: "Conduzco para ir al trabajo"
+      - word: "enviar"
+        translation: "to send"
+        example: "Esto es para ti"
+    conversation_prompts:
+      - "¿Por dónde te gusta caminar?"
+      - "¿Para qué estudias español?"
+      - "¿Viajas mucho por tu país?"
+    cultural_topic: "Madrid neighborhoods: Malasaña, Chueca, La Latina"
+
+  week_6:
+    title: "Por vs Para - Dominio"
+    grammar_topics:
+      - por_vs_para_advanced
+      - idiomatic_uses
+    grammar_notes: |
+      Expresiones idiomáticas: por favor, por supuesto, para siempre, para colmo
+    vocabulary_theme: "travel_movement"
+    vocabulary_words:
+      - word: "tardar"
+        translation: "to take time"
+        example: "Tardo 30 minutos por el tráfico"
+      - word: "quedarse"
+        translation: "to stay/remain"
+        example: "Me quedo por una semana"
+      - word: "pasar"
+        translation: "to pass/spend time"
+        example: "Paso por tu casa mañana"
+      - word: "llegar"
+        translation: "to arrive"
+        example: "Llegaré para las 8"
+      - word: "salir"
+        translation: "to leave/go out"
+        example: "Salgo para Barcelona mañana"
+    conversation_prompts:
+      - "¿Cuánto tardas en llegar al trabajo?"
+      - "¿Te quedas por mucho tiempo en Madrid?"
+      - "¿Pasas por el centro a menudo?"
+    cultural_topic: "Metro de Madrid and public transport"
+
+  week_7:
+    title: "Pretérito vs Imperfecto - Matices"
+    grammar_topics:
+      - preterite_imperfect_storytelling
+      - background_vs_action
+    grammar_notes: |
+      Pretérito: acciones completadas, eventos específicos
+      Imperfecto: descripciones, acciones habituales, contexto
+    vocabulary_theme: "past_experiences"
+    vocabulary_words:
+      - word: "recordar"
+        translation: "to remember"
+        example: "Recuerdo cuando era niño"
+      - word: "soler"
+        translation: "to usually do"
+        example: "Solía jugar aquí de pequeño"
+      - word: "acostumbrar"
+        translation: "to be accustomed to"
+        example: "Me acostumbraba a levantarme temprano"
+      - word: "suceder"
+        translation: "to happen"
+        example: "¿Qué sucedió después?"
+      - word: "ocurrir"
+        translation: "to occur"
+        example: "Ocurrió algo inesperado"
+    conversation_prompts:
+      - "Cuéntame sobre tu infancia. ¿Cómo era?"
+      - "¿Qué solías hacer los fines de semana?"
+      - "¿Recuerdas un momento importante de tu vida?"
+    cultural_topic: "Spanish childhood traditions and games"
+
+  week_8:
+    title: "Narrativa del Pasado"
+    grammar_topics:
+      - storytelling_techniques
+      - past_tense_mixing
+    grammar_notes: |
+      Combinación fluida de pretérito e imperfecto para contar historias
+    vocabulary_theme: "past_experiences"
+    vocabulary_words:
+      - word: "de repente"
+        translation: "suddenly"
+        example: "De repente, empezó a llover"
+      - word: "mientras"
+        translation: "while"
+        example: "Mientras caminaba, vi a un amigo"
+      - word: "cuando"
+        translation: "when"
+        example: "Cuando llegué, ya había empezado"
+      - word: "entonces"
+        translation: "then"
+        example: "Entonces decidí irme"
+      - word: "al final"
+        translation: "in the end"
+        example: "Al final, todo salió bien"
+    conversation_prompts:
+      - "Cuéntame sobre un viaje memorable"
+      - "¿Qué pasó la última vez que fuiste a un restaurante?"
+      - "Describe un día perfecto del pasado"
+    cultural_topic: "Spanish holidays and celebrations"
+
+  week_9:
+    title: "Futuro y Condicional"
+    grammar_topics:
+      - future_tense
+      - conditional_basic
+    grammar_notes: |
+      Futuro: hablaré, comeré, viviré
+      Condicional: hablaría, comería, viviría
+    vocabulary_theme: "plans_dreams"
+    vocabulary_words:
+      - word: "lograr"
+        translation: "to achieve"
+        example: "Algún día lograré mi sueño"
+      - word: "alcanzar"
+        translation: "to reach"
+        example: "Alcanzaré mis metas"
+      - word: "conseguir"
+        translation: "to get/obtain"
+        example: "Conseguiré un buen trabajo"
+      - word: "realizar"
+        translation: "to carry out/fulfill"
+        example: "Realizaré mis planes"
+      - word: "soñar"
+        translation: "to dream"
+        example: "Sueño con viajar por el mundo"
+    conversation_prompts:
+      - "¿Qué harás el próximo año?"
+      - "¿Dónde vivirías si pudieras elegir?"
+      - "¿Qué lograrás en los próximos 5 años?"
+    cultural_topic: "Spanish approach to work-life balance"
+
+  week_10:
+    title: "Situaciones Hipotéticas"
+    grammar_topics:
+      - conditional_hypothetical
+      - future_probability
+    grammar_notes: |
+      Condicional para situaciones hipotéticas y consejos
+    vocabulary_theme: "plans_dreams"
+    vocabulary_words:
+      - word: "imaginar"
+        translation: "to imagine"
+        example: "Imagina que ganas la lotería"
+      - word: "suponer"
+        translation: "to suppose"
+        example: "Supongo que vendrá"
+      - word: "intentar"
+        translation: "to try"
+        example: "Intentaría aprenderlo"
+      - word: "arriesgar"
+        translation: "to risk"
+        example: "No arriesgaría tanto"
+      - word: "aprovechar"
+        translation: "to take advantage of"
+        example: "Aprovecharía la oportunidad"
+    conversation_prompts:
+      - "¿Qué harías si ganaras la lotería?"
+      - "¿Imaginas vivir en otro país? ¿Cuál?"
+      - "¿Qué consejo le darías a tu yo de 10 años atrás?"
+    cultural_topic: "Spanish lottery (La Primitiva, El Gordo)"
+
+  week_11:
+    title: "Ser vs Estar - Avanzado"
+    grammar_topics:
+      - ser_estar_advanced
+      - estar_with_past_participle
+    grammar_notes: |
+      SER: identidad, origen, material, posesión, hora, características permanentes
+      ESTAR: ubicación, estado temporal, progresivo
+    vocabulary_theme: "descriptions"
+    vocabulary_words:
+      - word: "situado"
+        translation: "located"
+        example: "La tienda está situada en el centro"
+      - word: "cansado"
+        translation: "tired"
+        example: "Estoy muy cansado hoy"
+      - word: "emocionado"
+        translation: "excited"
+        example: "Estoy emocionado por el viaje"
+      - word: "aburrido"
+        translation: "bored/boring"
+        example: "Estoy aburrido vs Es aburrido"
+      - word: "listo"
+        translation: "ready/smart"
+        example: "Estoy listo vs Es listo"
+    conversation_prompts:
+      - "¿Cómo estás hoy? ¿Cómo eres normalmente?"
+      - "¿Dónde está tu lugar favorito? ¿Cómo es?"
+      - "¿Estás cansado o eres una persona cansina?"
+    cultural_topic: "Spanish personality and temperament stereotypes"
+
+  week_12:
+    title: "Descripciones Complejas"
+    grammar_topics:
+      - adjective_placement
+      - descriptive_vocabulary
+    grammar_notes: |
+      Uso de participios pasados como adjetivos con estar
+    vocabulary_theme: "descriptions"
+    vocabulary_words:
+      - word: "roto"
+        translation: "broken"
+        example: "La ventana está rota"
+      - word: "abierto"
+        translation: "open"
+        example: "La tienda está abierta"
+      - word: "cerrado"
+        translation: "closed"
+        example: "El museo está cerrado"
+      - word: "ocupado"
+        translation: "busy/occupied"
+        example: "Estoy muy ocupado"
+      - word: "preocupado"
+        translation: "worried"
+        example: "Estoy preocupado por ti"
+    conversation_prompts:
+      - "Describe tu casa o apartamento"
+      - "¿Cómo está tu ciudad hoy?"
+      - "¿Estás preocupado por algo?"
+    cultural_topic: "Spanish architecture and housing styles"
+
+  week_13:
+    title: "Mandatos - Tú, Usted, Nosotros"
+    grammar_topics:
+      - imperative_tu
+      - imperative_usted
+      - imperative_nosotros
+    grammar_notes: |
+      Mandatos afirmativos y negativos. Uso de pronombres con mandatos
+    vocabulary_theme: "instructions_advice"
+    vocabulary_words:
+      - word: "seguir"
+        translation: "to follow/continue"
+        example: "Sigue recto hasta la plaza"
+      - word: "girar"
+        translation: "to turn"
+        example: "Gira a la derecha"
+      - word: "cruzar"
+        translation: "to cross"
+        example: "Cruza la calle con cuidado"
+      - word: "probar"
+        translation: "to try/taste"
+        example: "Prueba esta tapa"
+      - word: "evitar"
+        translation: "to avoid"
+        example: "Evita esa zona por la noche"
+    conversation_prompts:
+      - "Dame instrucciones para llegar a tu lugar favorito"
+      - "¿Qué me recomiendas que haga en tu ciudad?"
+      - "Dame un consejo para aprender español mejor"
+    cultural_topic: "Giving directions in Spain (landmarks vs streets)"
+
+  week_14:
+    title: "Mandatos Indirectos"
+    grammar_topics:
+      - indirect_commands
+      - subjunctive_commands
+    grammar_notes: |
+      Uso del subjuntivo para mandatos indirectos: Que + subjuntivo
+    vocabulary_theme: "instructions_advice"
+    vocabulary_words:
+      - word: "insistir"
+        translation: "to insist"
+        example: "Insisto en que vengas"
+      - word: "pedir"
+        translation: "to ask for/request"
+        example: "Te pido que me escuches"
+      - word: "rogar"
+        translation: "to beg"
+        example: "Te ruego que me ayudes"
+      - word: "exigir"
+        translation: "to demand"
+        example: "Exijo que me digas la verdad"
+      - word: "ordenar"
+        translation: "to order/command"
+        example: "El jefe ordenó que trabajemos"
+    conversation_prompts:
+      - "¿Qué le pedirías a un amigo que hiciera por ti?"
+      - "¿En qué situación insistirías en que alguien cambie?"
+      - "¿Qué exiges de una buena amistad?"
+    cultural_topic: "Formal vs informal address in Spanish"
+
+  week_15:
+    title: "Subjuntivo Imperfecto - Introducción"
+    grammar_topics:
+      - imperfect_subjunctive
+      - si_clauses_intro
+    grammar_notes: |
+      Formación: pretérito 3ª persona plural → quitar -ron → añadir -ra/-se
+      hablar → hablara/hablase
+    vocabulary_theme: "hypotheticals"
+    vocabulary_words:
+      - word: "si"
+        translation: "if"
+        example: "Si tuviera tiempo, viajaría más"
+      - word: "aunque"
+        translation: "although/even if"
+        example: "Aunque lloviera, saldría"
+      - word: "como si"
+        translation: "as if"
+        example: "Hablas como si supieras todo"
+      - word: "ojalá"
+        translation: "I wish (past)"
+        example: "Ojalá tuviera más dinero"
+      - word: "quisiera"
+        translation: "I would like (polite)"
+        example: "Quisiera un café, por favor"
+    conversation_prompts:
+      - "Si pudieras viajar a cualquier época, ¿cuál elegirías?"
+      - "¿Qué harías si tuvieras un millón de euros?"
+      - "Ojalá que... (completa la frase)"
+    cultural_topic: "Spanish courtesy and politeness expressions"
+
+  week_16:
+    title: "Cláusulas Condicionales - Dominio"
+    grammar_topics:
+      - si_clauses_advanced
+      - hypothetical_past
+    grammar_notes: |
+      Si + imperfecto subjuntivo + condicional: Si tuviera dinero, viajaría
+      Si + pluscuamperfecto subjuntivo + condicional perfecto: Si hubiera sabido, habría venido
+    vocabulary_theme: "hypotheticals"
+    vocabulary_words:
+      - word: "haber"
+        translation: "to have (auxiliary)"
+        example: "Si hubiera sabido..."
+      - word: "saber"
+        translation: "to know"
+        example: "Si lo supiera, te lo diría"
+      - word: "poder"
+        translation: "to be able to"
+        example: "Si pudiera, lo haría"
+      - word: "deber"
+        translation: "should/must"
+        example: "Debería haberlo hecho"
+      - word: "tener"
+        translation: "to have"
+        example: "Si tuviera más tiempo..."
+    conversation_prompts:
+      - "¿Qué habrías hecho diferente en tu vida?"
+      - "Si pudieras cambiar una decisión del pasado, ¿cuál sería?"
+      - "Imagina que eres el presidente de tu país..."
+    cultural_topic: "Spanish political system and current affairs"
+
+metadata:
+  total_weeks: 16
+  target_level: "B1 → B2"
+  vocabulary_per_week: 5
+  total_vocabulary: 80
+  spaced_repetition_intervals: [1, 3, 7, 14, 30]  # days
+

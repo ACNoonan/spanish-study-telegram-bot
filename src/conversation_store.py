@@ -56,6 +56,20 @@ class UserEngagement:
         return max(candidates)
 
 
+@dataclass(frozen=True)
+class UserProfile:
+    """User profile with learning level and preferences."""
+
+    user_id: str
+    name: Optional[str]
+    telegram_username: Optional[str]
+    current_level: str
+    current_week: int
+    preferences: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
 class ConversationStore:
     """Manage conversation history for each user using SQLite."""
 
@@ -128,6 +142,45 @@ class ConversationStore:
                     last_weather_summary TEXT
                 )
                 """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT,
+                    telegram_username TEXT,
+                    current_level TEXT DEFAULT 'B1',
+                    current_week INTEGER DEFAULT 1,
+                    preferences TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_profiles_user ON user_profiles (user_id)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS vocabulary_cards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    word TEXT NOT NULL,
+                    translation TEXT,
+                    example TEXT,
+                    introduced_week INTEGER,
+                    introduced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ease_factor REAL DEFAULT 2.5,
+                    interval_days INTEGER DEFAULT 1,
+                    repetition_count INTEGER DEFAULT 0,
+                    next_review_date TEXT,
+                    last_review_date TEXT,
+                    UNIQUE(user_id, word)
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_vocab_user_review ON vocabulary_cards (user_id, next_review_date)"
             )
             conn.commit()
 
@@ -559,6 +612,117 @@ class ConversationStore:
         except Exception as exc:
             logger.error("Failed to count corrections: %s", exc, exc_info=True)
             return 0
+
+    async def get_profile(self, user_id: str) -> Optional[UserProfile]:
+        """Fetch user profile if present."""
+        await self.initialize()
+        return await asyncio.to_thread(self._get_profile_sync, user_id)
+
+    def _get_profile_sync(self, user_id: str) -> Optional[UserProfile]:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (user_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return UserProfile(
+                    user_id=row["user_id"],
+                    name=row["name"],
+                    telegram_username=row["telegram_username"],
+                    current_level=row["current_level"] or "B1",
+                    current_week=row["current_week"] or 1,
+                    preferences=row["preferences"],
+                    created_at=self._parse_timestamp(row["created_at"]),
+                    updated_at=self._parse_timestamp(row["updated_at"]),
+                )
+        except Exception as exc:
+            logger.error("Failed to fetch profile for %s: %s", user_id, exc, exc_info=True)
+            return None
+
+    async def upsert_profile(
+        self,
+        user_id: str,
+        name: Optional[str] = None,
+        telegram_username: Optional[str] = None,
+        current_level: Optional[str] = None,
+        current_week: Optional[int] = None,
+        preferences: Optional[str] = None,
+    ) -> None:
+        """Insert or update user profile."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._upsert_profile_sync,
+            user_id,
+            name,
+            telegram_username,
+            current_level,
+            current_week,
+            preferences,
+        )
+
+    def _upsert_profile_sync(
+        self,
+        user_id: str,
+        name: Optional[str],
+        telegram_username: Optional[str],
+        current_level: Optional[str],
+        current_week: Optional[int],
+        preferences: Optional[str],
+    ) -> None:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("SELECT user_id FROM user_profiles WHERE user_id = ?", (user_id,))
+                exists = cursor.fetchone() is not None
+
+                if not exists:
+                    conn.execute(
+                        """
+                        INSERT INTO user_profiles (user_id, name, telegram_username, current_level, current_week, preferences)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (user_id, name, telegram_username, current_level or "B1", current_week or 1, preferences),
+                    )
+                else:
+                    updates = ["updated_at = CURRENT_TIMESTAMP"]
+                    params: list = []
+                    if name is not None:
+                        updates.append("name = ?")
+                        params.append(name)
+                    if telegram_username is not None:
+                        updates.append("telegram_username = ?")
+                        params.append(telegram_username)
+                    if current_level is not None:
+                        updates.append("current_level = ?")
+                        params.append(current_level)
+                    if current_week is not None:
+                        updates.append("current_week = ?")
+                        params.append(current_week)
+                    if preferences is not None:
+                        updates.append("preferences = ?")
+                        params.append(preferences)
+
+                    if len(params) > 0:
+                        params.append(user_id)
+                        conn.execute(
+                            f"UPDATE user_profiles SET {', '.join(updates)} WHERE user_id = ?",
+                            params,
+                        )
+                conn.commit()
+        except Exception as exc:
+            logger.error("Failed to upsert profile for %s: %s", user_id, exc, exc_info=True)
+
+    def _parse_timestamp(self, value: Optional[str]) -> datetime:
+        """Parse a timestamp string or return epoch if missing."""
+        if not value:
+            return datetime.fromtimestamp(0, tz=timezone.utc)
+        try:
+            dt = datetime.fromisoformat(value)
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            return datetime.fromtimestamp(0, tz=timezone.utc)
 
 
 # Global instance used throughout the bot

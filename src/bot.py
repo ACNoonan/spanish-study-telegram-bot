@@ -22,9 +22,11 @@ from src.config import (
 )
 from src.llm_client import llm_client
 from src.personality import personality_system
-from src.conversation_store import conversation_store, CorrectionEntry, UserEngagement
+from src.conversation_store import conversation_store, CorrectionEntry, UserEngagement, UserProfile
 from src.correction import correction_analyzer, CorrectionSuggestion
 from src.weather import fetch_daily_weather_summary
+from src.curriculum import curriculum_manager
+from src.vocabulary import vocabulary_manager
 
 # Configure logging
 logging.basicConfig(
@@ -86,6 +88,27 @@ class SpanishTutorBot:
         user = update.effective_user
         logger.info(f"User {user.id} ({user.username}) started the bot")
         
+        # Create or update user profile on first interaction
+        await conversation_store.upsert_profile(
+            user_id=str(user.id),
+            name=user.first_name,
+            telegram_username=user.username,
+        )
+        
+        # Introduce week 1 vocabulary if this is a new user
+        profile = await conversation_store.get_profile(str(user.id))
+        if profile and profile.current_week == 1:
+            lesson = curriculum_manager.get_week_lesson(1)
+            if lesson:
+                for vocab in lesson.vocabulary_words[:5]:  # Introduce first 5 words
+                    await vocabulary_manager.introduce_word(
+                        str(user.id),
+                        vocab.word,
+                        vocab.translation,
+                        vocab.example,
+                        1,
+                    )
+        
         greeting = personality_system.get_greeting_message()
         await update.message.reply_text(greeting)
     
@@ -113,7 +136,7 @@ class SpanishTutorBot:
         response_text = None
         correction_suggestions: list[CorrectionSuggestion] = []
         try:
-            # Fetch current engagement state
+            # Fetch current engagement and profile
             engagement = await conversation_store.get_engagement(user_id) or UserEngagement(
                 user_id=user_id,
                 timezone=timezone_name,
@@ -123,10 +146,15 @@ class SpanishTutorBot:
                 reengagement_level=0,
                 in_session_bot_turns=0,
                 mood_score=0.6,
+                last_weather_date=None,
+                last_weather_summary=None,
             )
+            profile = await conversation_store.get_profile(user_id)
+            current_week = profile.current_week if profile else 1
 
-            # Build conversation messages for LLM
-            system_prompt = personality_system.get_system_prompt()
+            # Build conversation messages for LLM with curriculum context
+            lesson_context = curriculum_manager.build_lesson_context_prompt(current_week)
+            system_prompt = personality_system.get_system_prompt(lesson_context=lesson_context)
 
             # Analyze message for potential corrections
             correction_suggestions = await correction_analyzer.analyze(user_message)
