@@ -793,19 +793,6 @@ async def generate_and_send_image(context, chat_id):
 
 ---
 
-
-
-### Learning Experience Risks
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| Too much correction | Demotivation | Max 1-2 corrections per message, gentle tone |
-| Too little correction | No progress | Weekly assessments, adaptive difficulty |
-| Boring content | User churn | Variety engine, gamification, personality |
-| Inappropriate content | User discomfort | Content filters, adjustable flirtiness |
-| Privacy concerns | Trust issues | GDPR compliance, clear data policy |
-
----
-
 ## 🗺️ Quick Start Priorities
 
 ### Minimum Viable Product (MVP) - 4 Weeks
