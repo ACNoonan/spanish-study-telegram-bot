@@ -55,17 +55,23 @@ An AI-powered Spanish tutor bot that helps learners progress from B1 to B2 throu
 - ✅ **LLM Integration**: OpenAI (default) with retry logic and OpenRouter fallback
 - ✅ **Basic Commands**: `/start`, `/help`
 - ✅ **Typing Indicators**: Natural conversation feel
-- ✅ **Conversation Memory**: SQLite-backed recent-message context
-- ✅ **Gentle Corrections**: Automatic error detection with subtle prompts
-- ✅ **Scheduled Check-ins**: Buenos días pings and inactivity nudges to keep momentum
+- ✅ **Conversation Memory**: SQLite-backed recent-message context (last 20 messages)
+- ✅ **Intelligent Corrections**: Automatic error detection with repeat-error escalation (3x = explicit teaching)
+- ✅ **Scheduled Engagement**: Morning pings, inactivity nudges, and mood-adjusted tone
+- ✅ **Weather Integration**: Daily Madrid weather cached and used for mood scoring
+- ✅ **Session Tracking**: In-session turn counting and micro-lesson injection (2nd–3rd turn)
+- ✅ **User Profiles**: Track current CEFR level and curriculum week per user
+- ✅ **16-Week B1→B2 Curriculum**: Structured grammar, vocabulary, and cultural topics
+- ✅ **Spaced Repetition**: SM-2 algorithm for vocabulary review scheduling
+- ✅ **Data Pruning**: Automatic 30-day conversation cleanup
 
 ### Coming Soon (See [ROADMAP.md](docs/ROADMAP.md))
-- ✍️ Intelligent error correction
-- 📚 Structured B1-B2 curriculum
-- 🎯 Progress tracking & analytics
-- 🎤 Voice message support
-- 🎨 Character images
-- 🎮 Gamification & achievements
+- 🎯 Progress tracking & analytics dashboard
+- 🎤 Voice message support (TTS + STT)
+- 🎨 Character images (Flux LoRA)
+- 🎮 Advanced gamification & achievements
+- 📊 Adaptive difficulty system
+- 🏆 Weekly assessments and milestone conversations
 
 ## 📁 Project Structure
 
@@ -152,8 +158,8 @@ Sofía: ¡Hola, cariño! Estoy muy bien, gracias 😊 Acabo de volver de pasear
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the complete 16-week development plan.
 
-**Current Status**: 🔄 Phase 1 In Progress (Week 2)  
-**Focus**: Conversation Memory Enhancements & Corrections
+**Current Status**: ✅ Phase 2 Complete (Week 3)  
+**Focus**: Structured Curriculum & Spaced Repetition Implemented
 
 ## 💰 Cost Estimates (Phase 0)
 
@@ -175,6 +181,6 @@ The ultimate goal is to create an engaging AI companion that makes learning Span
 
 ---
 
-**Current Version**: 0.1.0 (Phase 0 - Foundation)  
-**Status**: 🟢 MVP Working  
+**Current Version**: 0.3.0 (Phase 2 - Curriculum System)  
+**Status**: 🟢 Fully Functional with 16-Week B1→B2 Curriculum  
 **Last Updated**: October 2025
