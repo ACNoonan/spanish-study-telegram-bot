@@ -61,3 +61,14 @@ CONVERSATION_DB_PATH = DATA_DIR / "conversations.sqlite"
 DEFAULT_USER_TIMEZONE = os.getenv("DEFAULT_USER_TIMEZONE", "Europe/Madrid")
 ENGAGEMENT_CHECK_INTERVAL_SECONDS = int(os.getenv("ENGAGEMENT_CHECK_INTERVAL_SECONDS", "1800"))  # 30 minutes
 MORNING_MESSAGE_HOUR = int(os.getenv("MORNING_MESSAGE_HOUR", "8"))
+
+# Proactive check-in time windows throughout the day
+# Bot will randomly send check-ins within these windows if user hasn't messaged recently
+# Format: (window_name, start_hour, end_hour)
+DAILY_CHECKIN_WINDOWS = [
+    ("morning", 6, 10),      # Early morning
+    ("midday", 11, 14),      # Lunch time
+    ("afternoon", 15, 18),   # Mid-afternoon
+    ("evening", 19, 22),     # Evening
+    ("night", 22, 24),       # Late night (optional, less frequent)
+]

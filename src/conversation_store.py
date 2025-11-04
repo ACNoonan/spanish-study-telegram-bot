@@ -46,6 +46,8 @@ class UserEngagement:
     mood_score: float
     last_weather_date: Optional[date]
     last_weather_summary: Optional[str]
+    last_checkin_date: Optional[date]
+    last_checkin_window: Optional[str]  # e.g., "morning", "midday", "afternoon", "evening", "night"
 
     @property
     def last_interaction(self) -> Optional[datetime]:
@@ -139,7 +141,9 @@ class ConversationStore:
                     in_session_bot_turns INTEGER DEFAULT 0,
                     mood_score REAL DEFAULT 0.6,
                     last_weather_date TEXT,
-                    last_weather_summary TEXT
+                    last_weather_summary TEXT,
+                    last_checkin_date TEXT,
+                    last_checkin_window TEXT
                 )
                 """
             )
@@ -203,6 +207,14 @@ class ConversationStore:
                 if "last_weather_summary" not in cols:
                     conn.execute(
                         "ALTER TABLE user_engagement ADD COLUMN last_weather_summary TEXT"
+                    )
+                if "last_checkin_date" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN last_checkin_date TEXT"
+                    )
+                if "last_checkin_window" not in cols:
+                    conn.execute(
+                        "ALTER TABLE user_engagement ADD COLUMN last_checkin_window TEXT"
                     )
                 conn.commit()
             except Exception as exc:  # pragma: no cover - defensive
@@ -400,6 +412,8 @@ class ConversationStore:
         mood_score: Optional[float] = None,
         last_weather_date: Optional[date] = None,
         last_weather_summary: Optional[str] = None,
+        last_checkin_date: Optional[date] = None,
+        last_checkin_window: Optional[str] = None,
     ) -> None:
         """Update engagement fields for a user."""
         try:
@@ -439,6 +453,14 @@ class ConversationStore:
                 if last_weather_summary is not None:
                     updates.append("last_weather_summary = ?")
                     params.append(last_weather_summary)
+
+                if last_checkin_date is not None:
+                    updates.append("last_checkin_date = ?")
+                    params.append(last_checkin_date.isoformat())
+
+                if last_checkin_window is not None:
+                    updates.append("last_checkin_window = ?")
+                    params.append(last_checkin_window)
 
                 params.append(user_id)
                 conn.execute(
@@ -498,6 +520,8 @@ class ConversationStore:
             mood_score=float(row["mood_score"]) if row["mood_score"] is not None else 0.6,
             last_weather_date=parse_date(row["last_weather_date"]),
             last_weather_summary=row["last_weather_summary"],
+            last_checkin_date=parse_date(row.get("last_checkin_date")),
+            last_checkin_window=row.get("last_checkin_window"),
         )
 
     async def reset_in_session_turns(
@@ -559,6 +583,23 @@ class ConversationStore:
             timezone_name,
             last_weather_date=weather_date,
             last_weather_summary=weather_summary,
+        )
+
+    async def mark_checkin(
+        self,
+        user_id: str,
+        timezone_name: str,
+        checkin_date: date,
+        checkin_window: str,
+    ) -> None:
+        """Mark that a casual check-in was sent in a specific time window."""
+        await self.initialize()
+        await asyncio.to_thread(
+            self._update_engagement_sync,
+            user_id,
+            timezone_name,
+            last_checkin_date=checkin_date,
+            last_checkin_window=checkin_window,
         )
 
     async def prune_older_than_days(self, days: int) -> None:
