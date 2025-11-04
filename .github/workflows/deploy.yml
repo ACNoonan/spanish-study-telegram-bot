@@ -35,7 +35,7 @@ jobs:
           host: ${{ secrets.MOLLY_SERVER_HOST }}
           username: ${{ secrets.MOLLY_SERVER_USERNAME }}
           password: ${{ secrets.MOLLY_SSH_PASSWORD }}
-          port: 5252
+          port: 4242
           script: |
             mkdir -p ~/apps/spanish-study-telegram-bot
 
@@ -45,7 +45,7 @@ jobs:
           SSH_PASS: ${{ secrets.MOLLY_SSH_PASSWORD }}
           REMOTE_HOST: ${{ secrets.MOLLY_SERVER_HOST }}
           REMOTE_USER: ${{ secrets.MOLLY_SERVER_USERNAME }}
-          REMOTE_PORT: 5252
+          REMOTE_PORT: 4242
           SOURCE: "./"
           TARGET: "~/apps/spanish-study-telegram-bot"
           EXCLUDE: ".git/,venv/,__pycache__/,data/,logs/,.env"
@@ -57,7 +57,7 @@ jobs:
           host: ${{ secrets.MOLLY_SERVER_HOST }}
           username: ${{ secrets.MOLLY_SERVER_USERNAME }}
           password: ${{ secrets.MOLLY_SSH_PASSWORD }}
-          port: 5252
+          port: 4242
           script: |
             cd ~/apps/spanish-study-telegram-bot
             bash deploy/remote_setup.sh
