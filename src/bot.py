@@ -20,6 +20,7 @@ from src.config import (
     ENGAGEMENT_CHECK_INTERVAL_SECONDS,
     MORNING_MESSAGE_HOUR,
     DAILY_CHECKIN_WINDOWS,
+    AUTHORIZED_USER_IDS_SET,
 )
 from src.llm_client import llm_client
 from src.personality import personality_system
@@ -220,11 +221,24 @@ class SpanishTutorBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command."""
         user = update.effective_user
+        user_id = str(user.id)
         logger.info(f"User {user.id} ({user.username}) started the bot")
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} (@{user.username}) attempted to start bot")
+            unauthorized_message = (
+                "¡Hola! 👋 Soy un bot privado de aprendizaje de español. "
+                "Este bot está configurado solo para uso personal.\n\n"
+                "Si te interesa tener acceso, por favor contacta al administrador. "
+                "¡Gracias por tu comprensión! 😊"
+            )
+            await update.message.reply_text(unauthorized_message)
+            return
         
         # Create or update user profile on first interaction
         await conversation_store.upsert_profile(
-            user_id=str(user.id),
+            user_id=user_id,
             name=user.first_name,
             telegram_username=user.username,
         )
@@ -248,6 +262,21 @@ class SpanishTutorBot:
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command."""
+        user = update.effective_user
+        user_id = str(user.id)
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} (@{user.username}) attempted to use help command")
+            unauthorized_message = (
+                "¡Hola! 👋 Soy un bot privado de aprendizaje de español. "
+                "Este bot está configurado solo para uso personal.\n\n"
+                "Si te interesa tener acceso, por favor contacta al administrador. "
+                "¡Gracias por tu comprensión! 😊"
+            )
+            await update.message.reply_text(unauthorized_message)
+            return
+        
         help_text = personality_system.get_help_message()
         await update.message.reply_text(help_text, parse_mode='Markdown')
     
@@ -263,6 +292,18 @@ class SpanishTutorBot:
             message_date = message_date.replace(tzinfo=timezone.utc)
         
         logger.info(f"Message from {user.id}: {user_message}")
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} (@{user.username}) attempted to use bot")
+            unauthorized_message = (
+                "¡Hola! 👋 Soy un bot privado de aprendizaje de español. "
+                "Este bot está configurado solo para uso personal.\n\n"
+                "Si te interesa tener acceso, por favor contacta al administrador. "
+                "¡Gracias por tu comprensión! 😊"
+            )
+            await update.message.reply_text(unauthorized_message)
+            return
         
         # Show typing indicator
         await update.message.chat.send_action(ChatAction.TYPING)
