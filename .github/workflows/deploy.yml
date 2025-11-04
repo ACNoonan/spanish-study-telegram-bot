@@ -40,16 +40,16 @@ jobs:
             mkdir -p ~/apps/spanish-study-telegram-bot
 
       - name: Sync project files
-        uses: easingthemes/ssh-deploy@v4
+        uses: appleboy/scp-action@v0.1.7
         with:
-          SSH_PASS: ${{ secrets.MOLLY_SSH_PASSWORD }}
-          REMOTE_HOST: ${{ secrets.MOLLY_SERVER_HOST }}
-          REMOTE_USER: ${{ secrets.MOLLY_SERVER_USERNAME }}
-          REMOTE_PORT: 4242
-          SOURCE: "./"
-          TARGET: "~/apps/spanish-study-telegram-bot"
-          EXCLUDE: ".git/,venv/,__pycache__/,data/,logs/,.env"
-          ARGS: "-rltgoDzvO --delete"
+          host: ${{ secrets.MOLLY_SERVER_HOST }}
+          username: ${{ secrets.MOLLY_SERVER_USERNAME }}
+          password: ${{ secrets.MOLLY_SSH_PASSWORD }}
+          port: 4242
+          source: "main.py,src/*,requirements.txt,config/*,deploy/*"
+          target: "~/apps/spanish-study-telegram-bot"
+          strip_components: 0
+          overwrite: true
 
       - name: Setup service and restart bot
         uses: appleboy/ssh-action@v1.2.0
