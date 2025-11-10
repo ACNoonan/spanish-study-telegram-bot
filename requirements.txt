@@ -1,5 +1,5 @@
-# Core Bot Framework
-python-telegram-bot>=20.0
+# Core Bot Framework (JobQueue requires the APScheduler extra)
+python-telegram-bot[job-queue]>=20.0
 python-dotenv>=1.0.0
 
 # LLM Integration
@@ -7,4 +7,3 @@ httpx>=0.24.0  # HTTP client with retry support
 
 # Utilities
 pyyaml>=6.0
-

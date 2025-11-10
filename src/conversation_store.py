@@ -509,19 +509,21 @@ class ConversationStore:
                 logger.debug("Invalid date stored for user %s: %s", row["user_id"], value)
                 return None
 
+        row_map = dict(row)
+
         return UserEngagement(
-            user_id=row["user_id"],
-            timezone=row["timezone"],
-            last_user_message_at=parse_datetime(row["last_user_message_at"]),
-            last_bot_message_at=parse_datetime(row["last_bot_message_at"]),
-            last_morning_ping_date=parse_date(row["last_morning_ping_date"]),
-            reengagement_level=row["reengagement_level"] or 0,
-            in_session_bot_turns=row["in_session_bot_turns"] or 0,
-            mood_score=float(row["mood_score"]) if row["mood_score"] is not None else 0.6,
-            last_weather_date=parse_date(row["last_weather_date"]),
-            last_weather_summary=row["last_weather_summary"],
-            last_checkin_date=parse_date(row.get("last_checkin_date")),
-            last_checkin_window=row.get("last_checkin_window"),
+            user_id=row_map["user_id"],
+            timezone=row_map["timezone"],
+            last_user_message_at=parse_datetime(row_map["last_user_message_at"]),
+            last_bot_message_at=parse_datetime(row_map["last_bot_message_at"]),
+            last_morning_ping_date=parse_date(row_map["last_morning_ping_date"]),
+            reengagement_level=row_map["reengagement_level"] or 0,
+            in_session_bot_turns=row_map["in_session_bot_turns"] or 0,
+            mood_score=float(row_map["mood_score"]) if row_map["mood_score"] is not None else 0.6,
+            last_weather_date=parse_date(row_map["last_weather_date"]),
+            last_weather_summary=row_map["last_weather_summary"],
+            last_checkin_date=parse_date(row_map.get("last_checkin_date")),
+            last_checkin_window=row_map.get("last_checkin_window"),
         )
 
     async def reset_in_session_turns(
