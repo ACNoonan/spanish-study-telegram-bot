@@ -46,6 +46,9 @@ EnvironmentFile=${ENV_FILE}
 ExecStart=${VENV_DIR}/bin/python ${APP_DIR}/main.py
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=spanish-study-bot
 
 [Install]
 WantedBy=default.target
@@ -55,6 +58,10 @@ if [[ ! -f "$ENV_FILE" ]]; then
   echo "WARNING: No environment file found at ${ENV_FILE}. The bot will fail to start until it exists." >&2
 fi
 
+echo "==> Killing any manual bot processes"
+# Kill any manually started python processes running main.py
+pkill -f "python.*main.py" || true
+
 echo "==> Reloading systemd user daemon"
 systemctl --user daemon-reload
 
@@ -62,5 +69,15 @@ echo "==> Enabling and restarting ${SERVICE_NAME} service"
 systemctl --user enable "${SERVICE_NAME}.service"
 systemctl --user restart "${SERVICE_NAME}.service"
 
+# Wait a moment for service to start
+sleep 2
+
+echo "==> Checking service status"
+systemctl --user status "${SERVICE_NAME}.service" --no-pager || true
+
+echo ""
 echo "==> Deployment complete."
+echo "Service status: $(systemctl --user is-active ${SERVICE_NAME}.service)"
+echo "View logs: journalctl --user -u ${SERVICE_NAME}.service -f"
+echo ""
 echo "Hint: Ensure 'loginctl enable-linger ${USER}' is set so the user service keeps running after logout."

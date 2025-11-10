@@ -29,7 +29,7 @@ jobs:
       - name: Sanity check
         run: python -m compileall main.py src
 
-      - name: Ensure target directory exists
+      - name: Deploy to server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.MOLLY_SERVER_HOST }}
@@ -37,27 +37,22 @@ jobs:
           password: ${{ secrets.MOLLY_SSH_PASSWORD }}
           port: 4242
           script: |
+            # Ensure app directory exists
             mkdir -p ~/apps/spanish-study-telegram-bot
-
-      - name: Sync project files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.MOLLY_SERVER_HOST }}
-          username: ${{ secrets.MOLLY_SERVER_USERNAME }}
-          password: ${{ secrets.MOLLY_SSH_PASSWORD }}
-          port: 4242
-          source: "main.py,src/*,requirements.txt,config/*,deploy/*"
-          target: "~/apps/spanish-study-telegram-bot"
-          strip_components: 0
-          overwrite: true
-
-      - name: Setup service and restart bot
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.MOLLY_SERVER_HOST }}
-          username: ${{ secrets.MOLLY_SERVER_USERNAME }}
-          password: ${{ secrets.MOLLY_SSH_PASSWORD }}
-          port: 4242
-          script: |
             cd ~/apps/spanish-study-telegram-bot
+            
+            # Initialize or update git repo
+            if [ ! -d .git ]; then
+              echo "Initializing git repository..."
+              git init
+              git remote add origin https://github.com/${{ github.repository }}.git
+            fi
+            
+            # Fetch and pull latest changes
+            echo "Pulling latest code..."
+            git fetch origin master
+            git reset --hard origin/master
+            
+            # Run deployment script
+            echo "Running deployment setup..."
             bash deploy/remote_setup.sh
