@@ -202,10 +202,15 @@ class SpanishTutorBot:
                         f"- Tipo: {suggestion.error_type}; original: \"{suggestion.original_text}\"; corrección: \"{suggestion.corrected_text}\". Explica brevemente: {suggestion.explanation}.{explicit_note}"
                     )
                 correction_hint = (
-                    "\nCORRECCIONES DETECTADAS:\n"
+                    "\nCORRECCIONES SUGERIDAS (OPCIONALES):\n"
                     + "\n".join(hint_lines)
-                    + "\nIntegra estas correcciones de forma natural usando el método sandwich y un tono positivo. "
-                    "No enumeres literalmente las correcciones; incorpóralas en tu respuesta."
+                    + "\n\nPuedes mencionar estas correcciones SI SON REALMENTE IMPORTANTES para la comunicación. "
+                    "Recuerda ser MUY tolerante con:\n"
+                    "- Errores menores que no afectan la comprensión\n"
+                    "- Abreviaciones o lenguaje informal de chat\n"
+                    "- Pequeños errores de ortografía o acentos\n\n"
+                    "Si decides corregir algo, hazlo de forma muy sutil y natural en tu respuesta, "
+                    "sin interrumpir el flujo de la conversación. Prioriza mantener la conversación natural y divertida."
                 )
                 system_prompt += correction_hint
 

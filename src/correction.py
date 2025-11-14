@@ -42,12 +42,18 @@ class CorrectionAnalyzer:
             "y devuelve una lista JSON con como máximo "
             f"{self.max_corrections} correcciones. Cada corrección debe incluir "
             'los campos: "error_type", "original_text", "corrected_text", '
-            '"explanation". Responde únicamente con JSON válido.'
+            '"explanation". Responde únicamente con JSON válido.\n\n'
+            "IMPORTANTE: Solo identifica errores SIGNIFICATIVOS que impidan la comunicación "
+            "o sean fundamentales para nivel B1-B2. Ignora:\n"
+            "- Errores menores de gramática que no afectan la comprensión\n"
+            "- Abreviaciones y lenguaje informal de texto (ej: 'q', 'tb', 'tmb')\n"
+            "- Pequeños errores de ortografía o acentos si el significado es claro\n"
+            "- Uso coloquial o expresiones informales apropiadas para chat"
         )
         user_prompt = (
             "Mensaje del estudiante:\n"
             f"{user_message}\n\n"
-            "Si no hay errores importantes para nivel B1-B2, devuelve un "
+            "Si no hay errores SIGNIFICATIVOS que requieran corrección, devuelve un "
             "arreglo JSON vacío ([])."
         )
 
