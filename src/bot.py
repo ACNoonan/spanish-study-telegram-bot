@@ -330,37 +330,36 @@ class SpanishTutorBot:
             logger.error(f"Invalid timezone {timezone_name}, using UTC")
             zone = timezone.utc
 
+        # Create timezone-aware time objects
+        morning_time = time(9, 0, tzinfo=zone)
+        afternoon_time = time(14, 0, tzinfo=zone)
+        evening_time = time(19, 0, tzinfo=zone)
+
         # Schedule morning message at 9:00 AM
-        morning_time = time(9, 0)
         job_queue.run_daily(
             self._send_scheduled_message,
             time=morning_time,
             days=(0, 1, 2, 3, 4, 5, 6),  # Every day
             name="morning_message",
             data={"message_type": "morning"},
-            timezone=zone,
         )
 
         # Schedule afternoon message at 2:00 PM
-        afternoon_time = time(14, 0)
         job_queue.run_daily(
             self._send_scheduled_message,
             time=afternoon_time,
             days=(0, 1, 2, 3, 4, 5, 6),  # Every day
             name="afternoon_message",
             data={"message_type": "afternoon"},
-            timezone=zone,
         )
 
         # Schedule evening message at 7:00 PM
-        evening_time = time(19, 0)
         job_queue.run_daily(
             self._send_scheduled_message,
             time=evening_time,
             days=(0, 1, 2, 3, 4, 5, 6),  # Every day
             name="evening_message",
             data={"message_type": "evening"},
-            timezone=zone,
         )
 
         # Daily prune of old conversation data (keep last 30 days)
