@@ -26,11 +26,24 @@ from src.correction import correction_analyzer, CorrectionSuggestion
 from src.curriculum import curriculum_manager
 
 # Configure logging
+from src.config import LOGS_DIR
+import os
+
+# Create logs directory if it doesn't exist
+LOGS_DIR.mkdir(exist_ok=True)
+
+# Set up logging to both console and file
+log_file = LOGS_DIR / "bot.log"
 logging.basicConfig(
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()  # Also log to console
+    ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to file: {log_file}")
 
 
 FALLBACK_TECHNICAL = (
@@ -63,8 +76,7 @@ class SpanishTutorBot:
     """Spanish Tutor Bot with personality."""
     
     def __init__(self):
-        self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-        self.application.post_init = self._on_startup
+        self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(self._on_startup).build()
         self._setup_handlers()
 
     async def _on_startup(self, application: Application):
