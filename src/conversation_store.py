@@ -127,6 +127,19 @@ class ConversationStore:
                 """
             )
             conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS review_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    cards_total INTEGER NOT NULL,
+                    cards_completed INTEGER NOT NULL,
+                    duration_seconds REAL NOT NULL,
+                    exit_reason TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_corrections_user ON conversation_corrections (user_id, id)"
             )
             conn.execute(
@@ -754,6 +767,74 @@ class ConversationStore:
                 conn.commit()
         except Exception as exc:
             logger.error("Failed to upsert profile for %s: %s", user_id, exc, exc_info=True)
+
+    async def log_review_session(
+        self,
+        user_id: str,
+        cards_total: int,
+        cards_completed: int,
+        duration_seconds: float,
+        exit_reason: str,
+    ) -> None:
+        """Log a vocabulary review session for analytics."""
+        await asyncio.to_thread(
+            self._log_review_session_sync,
+            user_id,
+            cards_total,
+            cards_completed,
+            duration_seconds,
+            exit_reason,
+        )
+
+    def _log_review_session_sync(
+        self,
+        user_id: str,
+        cards_total: int,
+        cards_completed: int,
+        duration_seconds: float,
+        exit_reason: str,
+    ) -> None:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO review_sessions (user_id, cards_total, cards_completed, duration_seconds, exit_reason)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (user_id, cards_total, cards_completed, duration_seconds, exit_reason),
+                )
+                conn.commit()
+        except Exception as exc:
+            logger.error("Failed to log review session for %s: %s", user_id, exc, exc_info=True)
+
+    async def get_review_stats(self, user_id: str, days: int = 30) -> dict:
+        """Get vocabulary review statistics for the last N days."""
+        return await asyncio.to_thread(self._get_review_stats_sync, user_id, days)
+
+    def _get_review_stats_sync(self, user_id: str, days: int) -> dict:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cutoff = datetime.now(timezone.utc).timestamp() - (days * 86400)
+                cursor = conn.execute(
+                    """
+                    SELECT 
+                        COUNT(*) as session_count,
+                        SUM(cards_completed) as total_cards_reviewed,
+                        AVG(cards_completed * 1.0 / cards_total) as avg_completion_rate
+                    FROM review_sessions
+                    WHERE user_id = ? AND created_at >= datetime(?, 'unixepoch')
+                    """,
+                    (user_id, cutoff),
+                )
+                row = cursor.fetchone()
+                return {
+                    "session_count": row[0] or 0,
+                    "total_cards_reviewed": row[1] or 0,
+                    "avg_completion_rate": row[2] or 0.0,
+                }
+        except Exception as exc:
+            logger.error("Failed to get review stats for %s: %s", user_id, exc, exc_info=True)
+            return {"session_count": 0, "total_cards_reviewed": 0, "avg_completion_rate": 0.0}
 
     def _parse_timestamp(self, value: Optional[str]) -> datetime:
         """Parse a timestamp string or return epoch if missing."""

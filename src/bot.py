@@ -1,4 +1,5 @@
 """Main Telegram bot implementation."""
+import asyncio
 import inspect
 import logging
 import random
@@ -24,6 +25,9 @@ from src.personality import personality_system
 from src.conversation_store import conversation_store, CorrectionEntry
 from src.correction import correction_analyzer, CorrectionSuggestion
 from src.curriculum import curriculum_manager
+from src.vocabulary import vocabulary_manager
+from src.weather import fetch_daily_weather_summary
+from src.review_session import review_session_manager
 
 # Configure logging
 from src.config import LOGS_DIR
@@ -90,6 +94,9 @@ class SpanishTutorBot:
         # Command handlers
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
+        self.application.add_handler(CommandHandler("vocab", self.vocab_command))
+        self.application.add_handler(CommandHandler("progress", self.progress_command))
+        self.application.add_handler(CommandHandler("advance", self.advance_command))
         
         # Message handlers
         self.application.add_handler(
@@ -144,10 +151,149 @@ class SpanishTutorBot:
         help_text = personality_system.get_help_message()
         await update.message.reply_text(help_text, parse_mode='Markdown')
     
+    async def vocab_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /vocab command - start vocabulary review session."""
+        user = update.effective_user
+        user_id = str(user.id)
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} attempted /vocab")
+            return
+        
+        # Check if already in a review session
+        if review_session_manager.has_active_session(user_id):
+            await update.message.reply_text(
+                "Ya estamos en medio de un repaso, guapo 😊 Sigamos con ese."
+            )
+            return
+        
+        # Get due vocabulary cards
+        due_cards = await vocabulary_manager.get_due_words(user_id, limit=10)
+        
+        if not due_cards:
+            await update.message.reply_text(
+                "¡Genial! No tienes palabras pendientes ahora mismo 🎉\n"
+                "Sigue practicando y pronto tendrás más para repasar."
+            )
+            return
+        
+        # Create review session
+        review_session_manager.create_session(user_id, due_cards)
+        
+        await update.message.reply_text(
+            f"Vale, vamos a repasar {len(due_cards)} palabras 😊\n\n"
+            f"Responde de forma natural. Si quieres parar, escribe 'para' o 'stop'."
+        )
+        
+        # Send first card
+        await self._send_vocab_card(update, user_id)
+    
+    async def progress_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /progress command - show learning progress."""
+        user = update.effective_user
+        user_id = str(user.id)
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} attempted /progress")
+            return
+        
+        try:
+            # Get profile
+            profile = await conversation_store.get_profile(user_id)
+            if not profile:
+                await update.message.reply_text(
+                    "Hmm, parece que no encuentro tu perfil. Usa /start primero 😊"
+                )
+                return
+            
+            # Get vocabulary stats
+            vocab_stats = await vocabulary_manager.get_mastery_stats(user_id)
+            
+            # Get review stats
+            review_stats = await conversation_store.get_review_stats(user_id, days=14)
+            
+            # Get current lesson info
+            lesson = curriculum_manager.get_week_lesson(profile.current_week)
+            lesson_title = lesson.title if lesson else "Unknown"
+            
+            # Build progress message
+            progress_text = (
+                f"📊 *Tu Progreso*\n\n"
+                f"🎯 *Nivel actual:* {profile.current_level}\n"
+                f"📅 *Semana:* {profile.current_week} de {curriculum_manager.get_total_weeks()}\n"
+                f"📚 *Tema actual:* {lesson_title}\n\n"
+                f"*Vocabulario:*\n"
+                f"• Total: {vocab_stats['total']} palabras\n"
+                f"• Dominadas: {vocab_stats['mastered']} ✅\n"
+                f"• En aprendizaje: {vocab_stats['learning']} 📝\n"
+                f"• Nuevas: {vocab_stats['new']} 🆕\n\n"
+                f"*Últimas 2 semanas:*\n"
+                f"• Sesiones de repaso: {review_stats['session_count']}\n"
+                f"• Palabras repasadas: {review_stats['total_cards_reviewed']}\n"
+            )
+            
+            await update.message.reply_text(progress_text, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"Error in progress_command: {e}", exc_info=True)
+            await update.message.reply_text(
+                "Ay perdona, ha habido un problema al cargar tu progreso 😅"
+            )
+    
+    async def advance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /advance command - manually advance to next week."""
+        user = update.effective_user
+        user_id = str(user.id)
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} attempted /advance")
+            return
+        
+        try:
+            profile = await conversation_store.get_profile(user_id)
+            if not profile:
+                await update.message.reply_text(
+                    "Hmm, parece que no encuentro tu perfil. Usa /start primero 😊"
+                )
+                return
+            
+            current_week = profile.current_week
+            total_weeks = curriculum_manager.get_total_weeks()
+            
+            if current_week >= total_weeks:
+                await update.message.reply_text(
+                    "¡Ya has completado todo el currículum, guapo! 🎉\n"
+                    "Sigue practicando y perfeccionando tu español."
+                )
+                return
+            
+            new_week = current_week + 1
+            await conversation_store.upsert_profile(user_id=user_id, current_week=new_week)
+            
+            lesson = curriculum_manager.get_week_lesson(new_week)
+            lesson_title = lesson.title if lesson else "Unknown"
+            
+            await update.message.reply_text(
+                f"¡Genial! Avanzamos a la semana {new_week} 🎉\n\n"
+                f"📚 Nuevo tema: *{lesson_title}*\n\n"
+                f"Vamos a practicar esto de forma natural en nuestras conversaciones 😊"
+                ,
+                parse_mode='Markdown'
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in advance_command: {e}", exc_info=True)
+            await update.message.reply_text(
+                "Ay perdona, ha habido un problema 😅"
+            )
+    
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle incoming text messages."""
         user = update.effective_user
-        user_message = update.message.text
+        user_message = update.message.text.strip()
         user_id = str(user.id)
         timezone_name = self._resolve_timezone(update)
 
@@ -169,6 +315,39 @@ class SpanishTutorBot:
             await update.message.reply_text(unauthorized_message)
             return
         
+        # Check for exit keywords FIRST (highest priority)
+        exit_keywords = ["para", "stop", "luego", "salir", "later", "exit"]
+        if user_message.lower() in exit_keywords and review_session_manager.has_active_session(user_id):
+            await self._exit_review_session(update, user_id, reason="user_request")
+            return
+        
+        # Check if user is in an active review session
+        if review_session_manager.has_active_session(user_id):
+            session = review_session_manager.get_session(user_id)
+            
+            # Check for timeout
+            if session and session.is_inactive(timeout_minutes=10):
+                await self._exit_review_session(update, user_id, reason="timeout")
+                # Now process message as normal conversation
+                await self._handle_normal_conversation(update, context, user_message, user_id, timezone_name, message_date)
+            else:
+                # Process as review response
+                await self._handle_review_response(update, user_message, user_id)
+            return
+        
+        # Normal conversation handling
+        await self._handle_normal_conversation(update, context, user_message, user_id, timezone_name, message_date)
+    
+    async def _handle_normal_conversation(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        user_message: str,
+        user_id: str,
+        timezone_name: str,
+        message_date: datetime,
+    ):
+        """Handle normal conversation (not in review mode)."""
         # Show typing indicator
         await update.message.chat.send_action(ChatAction.TYPING)
         
@@ -181,7 +360,15 @@ class SpanishTutorBot:
 
             # Build conversation messages for LLM with curriculum context
             lesson_context = curriculum_manager.build_lesson_context_prompt(current_week)
-            system_prompt = personality_system.get_system_prompt(lesson_context=lesson_context)
+            
+            # Add weather context if available
+            weather_context = ""
+            weather_data = await fetch_daily_weather_summary()
+            if weather_data:
+                category, temp_c = weather_data
+                weather_context = f"\n\nCONTEXTO DEL DÍA: En Madrid hoy está {category} con {temp_c:.0f}°C."
+            
+            system_prompt = personality_system.get_system_prompt(lesson_context=lesson_context) + weather_context
 
             # Analyze message for potential corrections
             correction_suggestions = await correction_analyzer.analyze(user_message)
@@ -229,6 +416,9 @@ class SpanishTutorBot:
             if response_text:
                 await update.message.reply_text(response_text)
                 await self._maybe_send_reaction(update, correction_suggestions)
+                
+                # Proactive vocabulary review suggestion (occasionally)
+                await self._maybe_suggest_vocab_review(update, user_id)
             else:
                 # Fallback if LLM fails
                 response_text = FALLBACK_TECHNICAL
@@ -416,6 +606,192 @@ class SpanishTutorBot:
             logger.info("Pruned conversation data older than 30 days")
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("Failed to prune conversation data: %s", exc, exc_info=True)
+    
+    async def _send_vocab_card(self, update: Update, user_id: str) -> None:
+        """Send the current vocabulary card for review."""
+        session = review_session_manager.get_session(user_id)
+        if not session:
+            return
+        
+        card = session.current_card
+        if not card:
+            return
+        
+        card_number = session.current_card_index + 1
+        total_cards = len(session.cards)
+        
+        # Create a natural prompt based on the word
+        prompt_message = (
+            f"{card_number}/{total_cards}: *{card.word}*\n\n"
+            f"Úsala en una frase o cuéntame algo usando esta palabra 😊"
+        )
+        
+        if card.example:
+            prompt_message += f"\n\n_Ejemplo: {card.example}_"
+        
+        await update.message.reply_text(prompt_message, parse_mode='Markdown')
+    
+    async def _handle_review_response(
+        self,
+        update: Update,
+        user_message: str,
+        user_id: str,
+    ) -> None:
+        """Handle a user's response during vocabulary review."""
+        try:
+            session = review_session_manager.get_session(user_id)
+            if not session:
+                # Session disappeared, fall back to normal conversation
+                await update.message.reply_text(
+                    "Hmm, parece que perdí el hilo. Sigamos charlando normalmente 😊"
+                )
+                return
+            
+            current_card = session.current_card
+            if not current_card:
+                return
+            
+            # Evaluate if they used the word correctly
+            used_correctly = await self._evaluate_vocab_usage(user_message, current_card)
+            
+            # Determine quality score for SM-2 algorithm
+            quality = 4 if used_correctly else 2
+            
+            # Save card progress immediately
+            try:
+                await vocabulary_manager.update_card_after_review(current_card.id, quality)
+                logger.info(f"Updated card {current_card.id} for user {user_id} with quality {quality}")
+            except Exception as e:
+                logger.error(f"Failed to save card progress: {e}", exc_info=True)
+                # Continue anyway - don't break the flow
+            
+            # Give feedback
+            if used_correctly:
+                feedback = random.choice([
+                    "¡Perfecto! ✅",
+                    "¡Muy bien! ✅",
+                    "¡Excelente! 🌟",
+                    "¡Genial, guapo! ✅",
+                ])
+            else:
+                feedback = f"Casi, guapo 😊 Un ejemplo: _{current_card.example}_"
+            
+            await update.message.reply_text(feedback, parse_mode='Markdown')
+            
+            # Move to next card
+            session.advance()
+            
+            if session.is_complete:
+                # Review complete!
+                await self._exit_review_session(update, user_id, reason="completion")
+            else:
+                # Brief pause then send next card
+                await asyncio.sleep(0.5)
+                await self._send_vocab_card(update, user_id)
+                
+        except Exception as e:
+            logger.error(f"Error in review handler for {user_id}: {e}", exc_info=True)
+            await self._exit_review_session(update, user_id, reason="error")
+            await update.message.reply_text(
+                "Ay perdona guapo, ha habido un problemita técnico 😅\n"
+                "Tu progreso está guardado. ¿Seguimos charlando?"
+            )
+    
+    async def _evaluate_vocab_usage(self, user_message: str, card) -> bool:
+        """
+        Evaluate if the user correctly used the vocabulary word.
+        Simple check: word appears in their message.
+        Could be enhanced with LLM evaluation in the future.
+        """
+        word_lower = card.word.lower()
+        message_lower = user_message.lower()
+        
+        # Check if the word or its root appears
+        # Simple heuristic - could be improved
+        return word_lower in message_lower or any(
+            word_lower in token for token in message_lower.split()
+        )
+    
+    async def _exit_review_session(
+        self,
+        update: Update,
+        user_id: str,
+        reason: str = "user_request",
+    ) -> None:
+        """
+        Gracefully exit review session with proper cleanup.
+        
+        Args:
+            reason: "user_request", "timeout", "completion", "error"
+        """
+        session = review_session_manager.end_session(user_id)
+        
+        if not session:
+            return  # No active session
+        
+        # Log exit
+        cards_completed = session.cards_completed
+        cards_total = len(session.cards)
+        duration = (datetime.now(timezone.utc) - session.started_at).total_seconds()
+        
+        logger.info(
+            f"Review session ended for {user_id}: {reason} "
+            f"({cards_completed}/{cards_total} completed)"
+        )
+        
+        # Save session stats to database for analytics
+        try:
+            await conversation_store.log_review_session(
+                user_id=user_id,
+                cards_total=cards_total,
+                cards_completed=cards_completed,
+                duration_seconds=duration,
+                exit_reason=reason,
+            )
+        except Exception as e:
+            logger.error(f"Failed to log review session: {e}")
+        
+        # Send appropriate message based on reason
+        if reason == "user_request":
+            remaining = cards_total - cards_completed
+            await update.message.reply_text(
+                f"Vale guapo, lo dejamos aquí 😊\n\n"
+                f"Has repasado {cards_completed} de {cards_total} palabras. "
+                f"Las {remaining} restantes las verás la próxima vez.\n\n"
+                f"¿De qué quieres hablar?"
+            )
+        elif reason == "timeout":
+            await update.message.reply_text(
+                "Parece que te has distraído 😊 No pasa nada, seguimos cuando quieras."
+            )
+        elif reason == "completion":
+            await update.message.reply_text(
+                f"¡Has terminado! 🎉 Has repasado {cards_completed} palabras.\n\n"
+                f"¿De qué quieres hablar ahora?"
+            )
+        # For "error", message already sent elsewhere
+    
+    async def _maybe_suggest_vocab_review(self, update: Update, user_id: str) -> None:
+        """
+        Occasionally suggest vocabulary review if user has many due cards.
+        Only suggest once per day to avoid being annoying.
+        """
+        try:
+            # Check if we already suggested today
+            # For now, use a simple random check (20% chance)
+            if random.random() > 0.2:
+                return
+            
+            # Get due cards count
+            due_cards = await vocabulary_manager.get_due_words(user_id, limit=5)
+            
+            if len(due_cards) >= 5:
+                await update.message.reply_text(
+                    f"Oye guapo, tienes {len(due_cards)} palabras esperando para repasar 📚\n"
+                    f"¿Las repasamos? Usa /vocab cuando quieras 😊"
+                )
+        except Exception as e:
+            logger.error(f"Error in suggest vocab review: {e}", exc_info=True)
 
 
 
