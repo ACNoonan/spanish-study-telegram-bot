@@ -4,6 +4,7 @@ import inspect
 import logging
 import random
 from datetime import datetime, timezone, time
+from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from telegram import Update
 from telegram.ext import (
@@ -28,6 +29,7 @@ from src.curriculum import curriculum_manager
 from src.vocabulary import vocabulary_manager
 from src.weather import fetch_daily_weather_summary
 from src.review_session import review_session_manager
+from src.voice_handler import voice_handler
 
 # Configure logging
 from src.config import LOGS_DIR
@@ -101,6 +103,9 @@ class SpanishTutorBot:
         # Message handlers
         self.application.add_handler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
+        self.application.add_handler(
+            MessageHandler(filters.VOICE, self.handle_voice_message)
         )
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -338,19 +343,92 @@ class SpanishTutorBot:
         # Normal conversation handling
         await self._handle_normal_conversation(update, context, user_message, user_id, timezone_name, message_date)
     
-    async def _handle_normal_conversation(
-        self,
-        update: Update,
-        context: ContextTypes.DEFAULT_TYPE,
-        user_message: str,
-        user_id: str,
-        timezone_name: str,
-        message_date: datetime,
-    ):
-        """Handle normal conversation (not in review mode)."""
+    async def handle_voice_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle incoming voice messages."""
+        user = update.effective_user
+        user_id = str(user.id)
+        timezone_name = self._resolve_timezone(update)
+        
+        message_date = update.message.date or datetime.now(timezone.utc)
+        if message_date.tzinfo is None:
+            message_date = message_date.replace(tzinfo=timezone.utc)
+        
+        logger.info(f"Voice message from {user.id}")
+        
+        # Check if user is authorized
+        if user_id not in AUTHORIZED_USER_IDS_SET:
+            logger.warning(f"Unauthorized user {user.id} (@{user.username}) attempted to send voice message")
+            unauthorized_message = (
+                "¡Hola! 👋 Soy un bot privado de aprendizaje de español. "
+                "Este bot está configurado solo para uso personal.\n\n"
+                "Si te interesa tener acceso, por favor contacta al administrador. "
+                "¡Gracias por tu comprensión! 😊"
+            )
+            await update.message.reply_text(unauthorized_message)
+            return
+        
         # Show typing indicator
         await update.message.chat.send_action(ChatAction.TYPING)
         
+        try:
+            # Get the voice file
+            voice_file = await update.message.voice.get_file()
+            
+            # Transcribe the voice message
+            transcribed_text = await voice_handler.transcribe_voice(voice_file)
+            
+            if not transcribed_text:
+                await update.message.reply_text(
+                    "Ay perdona, cariño... no pude entender tu mensaje de voz 😅 ¿Puedes intentarlo otra vez?"
+                )
+                return
+            
+            logger.info(f"Transcribed voice from {user.id}: {transcribed_text}")
+            
+            # Process the transcribed text as a normal message
+            response_text = await self._process_message_and_get_response(
+                user_id, transcribed_text, timezone_name, message_date
+            )
+            
+            if not response_text:
+                response_text = FALLBACK_TECHNICAL
+                await update.message.reply_text(response_text)
+                return
+            
+            # Send text response first
+            await update.message.reply_text(response_text)
+            
+            # Generate voice response
+            await update.message.chat.send_action(ChatAction.RECORD_VOICE)
+            audio_data = await voice_handler.text_to_speech(response_text)
+            
+            if audio_data:
+                # Send voice message
+                await update.message.reply_voice(voice=audio_data)
+                logger.info(f"Sent voice response to {user.id}")
+            else:
+                logger.warning(f"Could not generate voice response for {user.id}")
+            
+            # Proactive vocabulary review suggestion (occasionally)
+            await self._maybe_suggest_vocab_review(update, user_id)
+            
+        except Exception as e:
+            logger.error(f"Error handling voice message: {e}", exc_info=True)
+            await update.message.reply_text(FALLBACK_ERROR)
+    
+    async def _process_message_and_get_response(
+        self,
+        user_id: str,
+        user_message: str,
+        timezone_name: str,
+        message_date: datetime,
+    ) -> Optional[str]:
+        """
+        Process a user message and generate a response.
+        
+        Returns the response text, or None on failure.
+        Also stores conversation history and corrections.
+        """
         response_text = None
         correction_suggestions: list[CorrectionSuggestion] = []
         try:
@@ -413,21 +491,13 @@ class SpanishTutorBot:
             # Get response from LLM
             response_text = await llm_client.generate_response(messages)
             
-            if response_text:
-                await update.message.reply_text(response_text)
-                await self._maybe_send_reaction(update, correction_suggestions)
-                
-                # Proactive vocabulary review suggestion (occasionally)
-                await self._maybe_suggest_vocab_review(update, user_id)
-            else:
+            if not response_text:
                 # Fallback if LLM fails
                 response_text = FALLBACK_TECHNICAL
-                await update.message.reply_text(response_text)
                 
         except Exception as e:
-            logger.error(f"Error handling message: {e}", exc_info=True)
+            logger.error(f"Error processing message: {e}", exc_info=True)
             response_text = FALLBACK_ERROR
-            await update.message.reply_text(response_text)
         
         finally:
             # Persist conversation history for future context
@@ -463,6 +533,43 @@ class SpanishTutorBot:
                     store_error,
                     exc_info=True,
                 )
+        
+        return response_text
+    
+    async def _handle_normal_conversation(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        user_message: str,
+        user_id: str,
+        timezone_name: str,
+        message_date: datetime,
+    ):
+        """Handle normal conversation (not in review mode)."""
+        # Show typing indicator
+        await update.message.chat.send_action(ChatAction.TYPING)
+        
+        try:
+            # Process message and get response
+            response_text = await self._process_message_and_get_response(
+                user_id, user_message, timezone_name, message_date
+            )
+            
+            if response_text:
+                await update.message.reply_text(response_text)
+                
+                # Note: correction_suggestions not available here anymore
+                # Could refactor further if needed
+                
+                # Proactive vocabulary review suggestion (occasionally)
+                await self._maybe_suggest_vocab_review(update, user_id)
+            else:
+                # Fallback if processing fails
+                await update.message.reply_text(FALLBACK_TECHNICAL)
+                
+        except Exception as e:
+            logger.error(f"Error handling message: {e}", exc_info=True)
+            await update.message.reply_text(FALLBACK_ERROR)
 
     def run(self):
         """Start the bot with polling."""
