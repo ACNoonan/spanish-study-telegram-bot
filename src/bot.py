@@ -530,16 +530,17 @@ class SpanishTutorBot:
             return ""
         
         # Start with a friendly header
-        message_parts = ["📝 *Pequeña corrección:*\n" if len(corrections) == 1 else "📝 *Pequeñas correcciones:*\n"]
+        header = "📝 *Pequeña corrección:*" if len(corrections) == 1 else "📝 *Pequeñas correcciones:*"
+        message_parts = [header]
         
         for i, correction in enumerate(corrections, 1):
             # Add each correction with clear formatting
             message_parts.append(
-                f"\n✏️ _{correction.original_text}_ → *{correction.corrected_text}*"
+                f"✏️ _{correction.original_text}_ → *{correction.corrected_text}*"
             )
             message_parts.append(f"💡 {correction.explanation}")
             
-            # Add spacing between corrections
+            # Add spacing between corrections (but not after the last one)
             if i < len(corrections):
                 message_parts.append("")
         
