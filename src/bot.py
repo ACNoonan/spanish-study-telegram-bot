@@ -386,7 +386,7 @@ class SpanishTutorBot:
             logger.info(f"Transcribed voice from {user.id}: {transcribed_text}")
             
             # Process the transcribed text as a normal message
-            response_text = await self._process_message_and_get_response(
+            response_text, corrections = await self._process_message_and_get_response(
                 user_id, transcribed_text, timezone_name, message_date
             )
             
@@ -395,7 +395,18 @@ class SpanishTutorBot:
                 await update.message.reply_text(response_text)
                 return
             
-            # Send text response first
+            # Send corrections FIRST as a separate message (if any)
+            if corrections:
+                correction_message = self._format_correction_message(corrections)
+                if correction_message:
+                    await update.message.reply_text(
+                        correction_message,
+                        parse_mode='Markdown'
+                    )
+                    # Brief pause before the personality response
+                    await asyncio.sleep(0.5)
+            
+            # Send text response
             await update.message.reply_text(response_text)
             
             # Generate voice response
@@ -422,11 +433,12 @@ class SpanishTutorBot:
         user_message: str,
         timezone_name: str,
         message_date: datetime,
-    ) -> Optional[str]:
+    ) -> tuple[Optional[str], list[CorrectionSuggestion]]:
         """
         Process a user message and generate a response.
         
-        Returns the response text, or None on failure.
+        Returns a tuple of (response_text, correction_suggestions).
+        Returns (None, []) on failure.
         Also stores conversation history and corrections.
         """
         response_text = None
@@ -448,36 +460,8 @@ class SpanishTutorBot:
             
             system_prompt = personality_system.get_system_prompt(lesson_context=lesson_context) + weather_context
 
-            # Analyze message for potential corrections
+            # Analyze message for potential corrections (but DON'T add them to the system prompt)
             correction_suggestions = await correction_analyzer.analyze(user_message)
-            correction_hint = ""
-            if correction_suggestions:
-                hint_lines = []
-                for suggestion in correction_suggestions:
-                    # Count prior occurrences to trigger explicit teaching after 3rd time
-                    prior_count = await conversation_store.get_correction_count(
-                        user_id, suggestion.error_type, window_days=14
-                    )
-                    explicit_note = (
-                        " Añade una explicación explícita y corta (1-2 frases) porque es un error repetido."
-                        if prior_count >= 2
-                        else ""
-                    )
-                    hint_lines.append(
-                        f"- Tipo: {suggestion.error_type}; original: \"{suggestion.original_text}\"; corrección: \"{suggestion.corrected_text}\". Explica brevemente: {suggestion.explanation}.{explicit_note}"
-                    )
-                correction_hint = (
-                    "\nCORRECCIONES SUGERIDAS (OPCIONALES):\n"
-                    + "\n".join(hint_lines)
-                    + "\n\nPuedes mencionar estas correcciones SI SON REALMENTE IMPORTANTES para la comunicación. "
-                    "Recuerda ser MUY tolerante con:\n"
-                    "- Errores menores que no afectan la comprensión\n"
-                    "- Abreviaciones o lenguaje informal de chat\n"
-                    "- Pequeños errores de ortografía o acentos\n\n"
-                    "Si decides corregir algo, hazlo de forma muy sutil y natural en tu respuesta, "
-                    "sin interrumpir el flujo de la conversación. Prioriza mantener la conversación natural y divertida."
-                )
-                system_prompt += correction_hint
 
             history_messages = await conversation_store.get_recent_messages(user_id)
 
@@ -534,7 +518,32 @@ class SpanishTutorBot:
                     exc_info=True,
                 )
         
-        return response_text
+        return response_text, correction_suggestions
+    
+    def _format_correction_message(self, corrections: list[CorrectionSuggestion]) -> str:
+        """
+        Format corrections as a friendly, emoji-decorated message.
+        
+        This message is sent separately from the AI personality response.
+        """
+        if not corrections:
+            return ""
+        
+        # Start with a friendly header
+        message_parts = ["📝 *Pequeña corrección:*\n" if len(corrections) == 1 else "📝 *Pequeñas correcciones:*\n"]
+        
+        for i, correction in enumerate(corrections, 1):
+            # Add each correction with clear formatting
+            message_parts.append(
+                f"\n✏️ _{correction.original_text}_ → *{correction.corrected_text}*"
+            )
+            message_parts.append(f"💡 {correction.explanation}")
+            
+            # Add spacing between corrections
+            if i < len(corrections):
+                message_parts.append("")
+        
+        return "\n".join(message_parts)
     
     async def _handle_normal_conversation(
         self,
@@ -550,16 +559,25 @@ class SpanishTutorBot:
         await update.message.chat.send_action(ChatAction.TYPING)
         
         try:
-            # Process message and get response
-            response_text = await self._process_message_and_get_response(
+            # Process message and get response with corrections
+            response_text, corrections = await self._process_message_and_get_response(
                 user_id, user_message, timezone_name, message_date
             )
             
             if response_text:
-                await update.message.reply_text(response_text)
+                # Send corrections FIRST as a separate message (if any)
+                if corrections:
+                    correction_message = self._format_correction_message(corrections)
+                    if correction_message:
+                        await update.message.reply_text(
+                            correction_message,
+                            parse_mode='Markdown'
+                        )
+                        # Brief pause before the personality response
+                        await asyncio.sleep(0.5)
                 
-                # Note: correction_suggestions not available here anymore
-                # Could refactor further if needed
+                # Then send the AI personality response
+                await update.message.reply_text(response_text)
                 
                 # Proactive vocabulary review suggestion (occasionally)
                 await self._maybe_suggest_vocab_review(update, user_id)

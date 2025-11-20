@@ -43,12 +43,22 @@ class CorrectionAnalyzer:
             f"{self.max_corrections} correcciones. Cada corrección debe incluir "
             'los campos: "error_type", "original_text", "corrected_text", '
             '"explanation". Responde únicamente con JSON válido.\n\n'
-            "IMPORTANTE: Solo identifica errores SIGNIFICATIVOS que impidan la comunicación "
-            "o sean fundamentales para nivel B1-B2. Ignora:\n"
-            "- Errores menores de gramática que no afectan la comprensión\n"
-            "- Abreviaciones y lenguaje informal de texto (ej: 'q', 'tb', 'tmb')\n"
-            "- Pequeños errores de ortografía o acentos si el significado es claro\n"
-            "- Uso coloquial o expresiones informales apropiadas para chat"
+            "IMPORTANTE: ENFÓCATE SOLO en errores GRAMATICALES y de VOCABULARIO/SIGNIFICADO "
+            "que sean importantes para el aprendizaje de B1-B2.\n\n"
+            "IGNORA COMPLETAMENTE:\n"
+            "- Cualquier error de ortografía (typos) que no cambien el significado\n"
+            "- Errores de acentos o tildes (á, é, í, etc.)\n"
+            "- Abreviaciones y lenguaje informal de texto (ej: 'q', 'tb', 'tmb', 'xq')\n"
+            "- Mayúsculas/minúsculas\n"
+            "- Puntuación incorrecta o faltante\n"
+            "- Uso coloquial o expresiones informales apropiadas para chat\n\n"
+            "CORRIGE SOLO:\n"
+            "- Errores de conjugación verbal (tiempos, modos, concordancia)\n"
+            "- Uso incorrecto de género (el/la) o número (singular/plural)\n"
+            "- Uso incorrecto de palabras que cambian el significado\n"
+            "- Errores en el orden de palabras que afectan la gramática\n"
+            "- Uso incorrecto de preposiciones importantes (a, de, en, por, para)\n"
+            "- Errores de concordancia sujeto-verbo o sustantivo-adjetivo"
         )
         user_prompt = (
             "Mensaje del estudiante:\n"
