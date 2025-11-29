@@ -590,6 +590,14 @@ class SpanishTutorBot:
                 # Then send the AI personality response
                 await update.message.reply_text(response_text)
                 
+                # Generate and send audio version of the response
+                await update.message.chat.send_action(ChatAction.RECORD_VOICE)
+                audio_data = await voice_handler.text_to_speech(response_text)
+                if audio_data:
+                    await update.message.reply_voice(voice=audio_data)
+                else:
+                    logger.warning(f"Could not generate voice response for {user_id}")
+                
                 # Proactive vocabulary review suggestion (occasionally)
                 await self._maybe_suggest_vocab_review(update, user_id)
             else:
