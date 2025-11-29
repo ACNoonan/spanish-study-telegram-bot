@@ -57,24 +57,34 @@ FALLBACK_TECHNICAL = (
 )
 FALLBACK_ERROR = "¡Ups! Algo salió mal. Por favor, inténtalo de nuevo."
 
-# Simple scheduled messages for different times of day
-SCHEDULED_MESSAGES = {
-    "morning": [
-        "¡Buenos días! ☀️ ¿Listo para practicar un poco de español conmigo hoy?",
-        "¡Hola, cariño! ¿Qué planes tienes para hoy?",
-        "Buenos días 🌅 ¿Qué tal has dormido?",
-        "¡Arriba! 💪 ¿Listo para un día genial?",
-    ],
-    "afternoon": [
-        "¡Hola! 😊 ¿Qué tal va tu día? Cuéntame algo.",
-        "¡Hey! 🌞 ¿Ya has comido? ¿Qué estás haciendo?",
-        "¿Qué tal? 💫 ¿Hacemos una pausa para charlar?",
-    ],
-    "evening": [
-        "¡Buenas noches! 🌆 ¿Qué tal ha ido tu día?",
-        "¡Hola! 🌙 ¿Qué has hecho hoy? Me encantaría saberlo.",
-        "¡Buenas! 🌃 ¿Has cenado ya? ¿Qué tal todo?",
-    ],
+# Scheduled message prompts - AI will generate unique personal messages
+SCHEDULED_MESSAGE_PROMPTS = {
+    "morning": """Genera un mensaje CORTO de buenos días como Sofía. Comparte algo personal sobre:
+- Lo que vas a hacer hoy en Madrid
+- Cómo te sientes esta mañana
+- Algo que te emocionó al despertar
+- Un plan que tienes para el día
+
+SIEMPRE termina preguntándole al usuario sobre su día, sus planes, o cómo se siente.
+Máximo 3-4 frases cortas. Sé cálida y natural.""",
+    
+    "afternoon": """Genera un mensaje CORTO de la tarde como Sofía. Comparte algo personal sobre:
+- Qué has hecho esta mañana
+- Algo interesante que te pasó hoy
+- Dónde estás ahora (café, casa, parque)
+- Algo que estás pensando o sintiendo
+
+SIEMPRE termina preguntándole al usuario cómo va su día o qué está haciendo.
+Máximo 3-4 frases cortas. Sé cálida y curiosa.""",
+    
+    "evening": """Genera un mensaje CORTO de la noche como Sofía. Comparte algo personal sobre:
+- Cómo fue tu día
+- Una pequeña historia de algo que te pasó hoy
+- Tus planes para esta noche
+- Algo en lo que estás pensando
+
+SIEMPRE termina preguntándole al usuario sobre su día o qué tal le fue.
+Máximo 3-4 frases cortas. Sé cálida y reflexiva.""",
 }
 
 
@@ -693,26 +703,116 @@ class SpanishTutorBot:
 
         logger.info("Scheduled daily messages: 9:00 AM, 2:00 PM, 7:00 PM")
 
+    async def _generate_scheduled_message(self, message_type: str) -> Optional[str]:
+        """
+        Generate a unique, personal scheduled message using AI.
+        
+        The message will have Sofía share something about her day and ask
+        the user a question to encourage practice.
+        """
+        try:
+            # Get the prompt template for this time of day
+            prompt_template = SCHEDULED_MESSAGE_PROMPTS.get(
+                message_type, 
+                SCHEDULED_MESSAGE_PROMPTS["morning"]
+            )
+            
+            # Build context with weather if available
+            weather_context = ""
+            weather_data = await fetch_daily_weather_summary()
+            if weather_data:
+                category, temp_c = weather_data
+                weather_context = f"\n\nEl tiempo hoy en Madrid: {category}, {temp_c:.0f}°C. Puedes mencionarlo si encaja naturalmente."
+            
+            # Get profile for personality consistency
+            profile = personality_system.profile
+            
+            system_prompt = f"""Eres {profile.get('name', 'Sofía')}, una profesora de español de {profile.get('age', 28)} años que vive en {profile.get('location', 'Madrid')}.
+
+Tu personalidad:
+- Cálida, cercana y un poco coqueta (pero apropiada)
+- Usas expresiones cariñosas como 'guapo', 'cariño'
+- Compartes cosas de tu vida cotidiana
+- Te gusta conectar genuinamente con tu estudiante
+
+{weather_context}
+
+IMPORTANTE: 
+- Escribe SOLO el mensaje, sin comillas ni explicaciones.
+- NO uses emojis en exceso (máximo 1-2).
+- Sé auténtica y varía el estilo, no repitas frases típicas.
+- El mensaje debe sonar como un audio de WhatsApp de una amiga."""
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_template},
+            ]
+            
+            # Generate with slightly higher temperature for variety
+            response = await llm_client.generate_response(
+                messages, 
+                temperature=0.9,
+                max_tokens=150,
+            )
+            
+            if response:
+                # Clean up any quotes or extra formatting
+                response = response.strip().strip('"').strip("'")
+                logger.info(f"Generated {message_type} message: {response[:50]}...")
+                return response
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating scheduled message: {e}", exc_info=True)
+            return None
+    
     async def _send_scheduled_message(self, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Send a scheduled message to all authorized users."""
+        """Send an AI-generated scheduled message with audio to all authorized users."""
         message_type = context.job.data.get("message_type", "morning")
-        messages = SCHEDULED_MESSAGES.get(message_type, SCHEDULED_MESSAGES["morning"])
-        message = random.choice(messages)
         
         now_utc = datetime.now(timezone.utc)
         timezone_name = DEFAULT_USER_TIMEZONE
+        
+        # Generate unique AI message
+        message = await self._generate_scheduled_message(message_type)
+        
+        if not message:
+            # Fallback to a simple message if AI generation fails
+            fallback_messages = {
+                "morning": "¡Buenos días, guapo! ¿Qué tal has dormido? 😊",
+                "afternoon": "¡Hola! ¿Qué tal va tu día? Cuéntame algo 😊",
+                "evening": "¡Buenas noches! ¿Cómo te fue hoy? 🌙",
+            }
+            message = fallback_messages.get(message_type, fallback_messages["morning"])
+            logger.warning(f"Using fallback message for {message_type}")
         
         # Send to all authorized users
         for user_id_str in AUTHORIZED_USER_IDS_SET:
             try:
                 chat_id = int(user_id_str)
+                
+                # Send text message first
                 await context.bot.send_message(chat_id=chat_id, text=message)
+                
+                # Generate and send audio version
+                audio_data = await voice_handler.text_to_speech(message)
+                if audio_data:
+                    await context.bot.send_voice(chat_id=chat_id, voice=audio_data)
+                    logger.info(f"Sent {message_type} message + audio to user {chat_id}")
+                else:
+                    logger.warning(f"Could not generate audio for {message_type} message to {chat_id}")
+                
+                # Record bot activity
                 await conversation_store.record_bot_activity(
                     user_id_str,
                     timezone_name,
                     now_utc,
                 )
-                logger.info(f"Sent {message_type} message to user {chat_id}")
+                
+                # Store in conversation history for context
+                await conversation_store.append_message(user_id_str, "assistant", message)
+                
             except Exception as exc:
                 logger.error(f"Failed to send {message_type} message to {user_id_str}: {exc}", exc_info=True)
 
