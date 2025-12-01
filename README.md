@@ -1,186 +1,62 @@
 # 🇪🇸 Spanish Study Telegram Bot
 
-An AI-powered Spanish tutor bot that helps learners progress from B1 to B2 through natural conversation with Sofía, a friendly language teacher from Madrid.
+An AI-powered Spanish tutor bot for progressing from B1 to B2 through conversation with Sofía, a friendly teacher from Madrid.
 
-## 🚀 Quick Start
+> **Note:** This is an educational/hobby project, open-sourced for learning. Contributions welcome!
 
-### Prerequisites
-- Python 3.10+
-- Telegram Bot Token (from [@BotFather](https://t.me/botfather))
-- OpenAI API Key (from [platform.openai.com](https://platform.openai.com))  
-  _(Optional fallback: OpenRouter API Key if you prefer OpenRouter)_
+## Quick Start
 
-### Installation
-
-1. **Clone and navigate to the project:**
-   ```bash
-   git clone https://github.com/ACNoonan/spanish-study-telegram-bot.git
-   cd spanish-study-telegram-bot
-   ```
-
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and add your credentials:
-   ```
-   TELEGRAM_BOT_TOKEN=your_token_here
-   OPENAI_API_KEY=your_openai_key_here
-   # Optional fallback if you want to use OpenRouter instead
-   # OPENROUTER_API_KEY=your_openrouter_key_here
-   ```
-
-5. **Run the bot:**
-   ```bash
-   python main.py
-   ```
-
-## ✨ Features
-
-### Current Implementation
-- ✅ **Conversational Bot**: Natural conversation in Spanish
-- ✅ **Character Personality**: Meet Sofía, una profe de Madrid
-- ✅ **LLM Integration**: OpenAI (default) with retry logic and OpenRouter fallback
-- ✅ **Basic Commands**: `/start`, `/help`
-- ✅ **Typing Indicators**: Natural conversation feel
-- ✅ **Conversation Memory**: SQLite-backed recent-message context (last 20 messages)
-- ✅ **Intelligent Corrections**: Automatic error detection with repeat-error escalation (3x = explicit teaching)
-- ✅ **Scheduled Engagement**: Morning pings, inactivity nudges, and mood-adjusted tone
-- ✅ **Weather Integration**: Daily Madrid weather cached and used for mood scoring
-- ✅ **Session Tracking**: In-session turn counting and micro-lesson injection (2nd–3rd turn)
-- ✅ **User Profiles**: Track current CEFR level and curriculum week per user
-- ✅ **16-Week B1→B2 Curriculum**: Structured grammar, vocabulary, and cultural topics
-- ✅ **Spaced Repetition**: SM-2 algorithm for vocabulary review scheduling
-- ✅ **Data Pruning**: Automatic 30-day conversation cleanup
-
-### Coming Soon (See [ROADMAP.md](docs/ROADMAP.md))
-- 🎯 Progress tracking & analytics dashboard
-- 🎤 Voice message support (TTS + STT)
-- 🎨 Character images (Flux LoRA)
-- 🎮 Advanced gamification & achievements
-- 📊 Adaptive difficulty system
-- 🏆 Weekly assessments and milestone conversations
-
-## 📁 Project Structure
-
-```
-spanish-study-telegram-bot/
-├── main.py                      # Entry point
-├── src/
-│   ├── bot.py                   # Main bot logic
-│   ├── config.py                # Configuration management
-│   ├── llm_client.py           # OpenRouter LLM integration
-│   └── personality.py          # Character personality system
-├── config/
-│   ├── character_profile.yaml  # Sofía's personality definition
-│   └── prompts/                # System prompt, greeting, and help text templates
-│       ├── system_prompt.md
-│       ├── greeting_message.md
-│       └── help_message.md
-├── docs/
-│   └── ROADMAP.md             # Full development roadmap
-├── requirements.txt           # Python dependencies
-└── .env                       # Environment variables (not in git)
-   ```
-
-   Optional environment overrides (default timezone is `Europe/Madrid`):
-   ```
-   DEFAULT_USER_TIMEZONE=America/New_York
-   ENGAGEMENT_CHECK_INTERVAL_SECONDS=1800
-   MORNING_MESSAGE_HOUR=8
-   ```
-
-## 🎭 Meet Sofía
-
-Sofía is your Spanish tutor - a 28-year-old language teacher from Madrid who loves tapas, flamenco, and sharing Spanish culture. She's:
-- 💛 Warm and encouraging
-- 🎓 Patient and professional
-- 😊 Slightly flirty but always appropriate
-- 🇪🇸 Passionate about Spanish language and Madrid culture
-
-## 🛠️ Development
-
-### Current Phase: Phase 0 (Foundation)
-This is the MVP with basic conversational capabilities.
-
-### Persona & Prompt Tuning
-Customize Sofía's behaviour by editing `config/character_profile.yaml` and the Markdown templates inside `config/prompts/`. Updates to those files are picked up on the next bot restart, making iteration on tone, rules, or help text quick and version-controlled.
-
-### Running in Development Mode
 ```bash
-# Set environment to development in .env
-ENVIRONMENT=development
-LOG_LEVEL=DEBUG
-
+git clone https://github.com/ACNoonan/spanish-study-telegram-bot.git
+cd spanish-study-telegram-bot
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # Edit with your keys
 python main.py
 ```
 
-### Testing the Bot
-1. Start the bot with `python main.py`
-2. Open Telegram and search for your bot
-3. Send `/start` to begin
-4. Try conversing in Spanish!
+## Environment Variables
 
-Example conversation:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TELEGRAM_BOT_TOKEN` | ✅ | From [@BotFather](https://t.me/botfather) |
+| `OPENAI_API_KEY` | ✅ | For LLM, voice transcription (Whisper), and TTS |
+| `AUTHORIZED_USER_IDS` | | Comma-separated Telegram user IDs (restricts access) |
+| `OPENROUTER_API_KEY` | | Fallback LLM provider |
+| `OPENAI_MODEL` | | Default: `gpt-4o-mini` |
+| `DEFAULT_USER_TIMEZONE` | | Default: `Europe/Madrid` |
+
+## Features
+
+- **Conversational Spanish practice** with character personality (Sofía)
+- **Voice messages** - send voice, receive voice (Whisper STT + OpenAI TTS)
+- **16-week B1→B2 curriculum** with structured grammar/vocabulary
+- **Spaced repetition** (SM-2 algorithm) for vocabulary retention
+- **Intelligent corrections** with escalation on repeated errors
+- **Scheduled engagement** - morning pings, inactivity nudges
+- **Weather-aware mood** - integrates Madrid weather for natural conversation
+
+## Project Structure
+
 ```
-User: Hola! ¿Cómo estás?
-Sofía: ¡Hola, cariño! Estoy muy bien, gracias 😊 Acabo de volver de pasear 
-       por el Retiro Park - ¡qué día tan bonito hace hoy en Madrid! 
-       ¿Y tú? ¿Qué tal tu día?
+├── main.py              # Entry point
+├── src/
+│   ├── bot.py           # Main bot logic
+│   ├── llm_client.py    # OpenAI/OpenRouter integration
+│   ├── voice_handler.py # Whisper STT + TTS
+│   ├── curriculum.py    # 16-week lesson system
+│   └── vocabulary.py    # Spaced repetition
+├── config/
+│   ├── character_profile.yaml
+│   ├── curriculum.yaml
+│   └── prompts/         # System prompts, templates
+└── data/                # SQLite conversation store
 ```
 
-## 📊 Tech Stack
+## Contributing
 
-- **Bot Framework**: python-telegram-bot (async)
-- **LLM**: OpenAI GPT family by default (OpenRouter optional)
-- **Config**: python-dotenv, PyYAML
-- **Database**: SQLite (coming in Phase 1)
+PRs and issues welcome. This started as a personal learning project - feel free to fork and adapt for your own language learning goals.
 
-## 🔐 Security Notes
+## License
 
-- Never commit `.env` file
-- Keep API keys secure
-- Conversation history lives in `data/conversations.sqlite`
-
-## 📈 Roadmap
-
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the complete 16-week development plan.
-
-**Current Status**: ✅ Phase 2 Complete (Week 3)  
-**Focus**: Structured Curriculum & Spaced Repetition Implemented
-
-## 💰 Cost Estimates (Phase 0)
-
-- **LLM (Meta Llama 3 8B)**: ~$0.10 per 1M tokens
-- **Expected monthly cost**: $5-10 for moderate usage
-- **Hosting**: Local development (free)
-
-## 🤝 Contributing
-
-This is a personal learning project, but feedback and suggestions are welcome!
-
-## 📝 License
-
-This project is for personal use and learning purposes.
-
-## 🎯 Goals
-
-The ultimate goal is to create an engaging AI companion that makes learning Spanish feel like chatting with a friend, helping you progress from B1 to B2 level naturally through conversation, corrections, and cultural immersion.
-
----
-
-**Current Version**: 0.3.0 (Phase 2 - Curriculum System)  
-**Status**: 🟢 Fully Functional with 16-Week B1→B2 Curriculum  
-**Last Updated**: October 2025
+MIT - see [LICENSE](LICENSE)
