@@ -23,8 +23,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN is not set in .env file")
 
-# Authorized user IDs (comma-separated list in env, or default to single user)
-AUTHORIZED_USER_IDS = os.getenv("AUTHORIZED_USER_IDS", "6089646018")
+# Authorized user IDs (comma-separated list in env)
+AUTHORIZED_USER_IDS = os.getenv("AUTHORIZED_USER_IDS", "")
 AUTHORIZED_USER_IDS_SET = set(id.strip() for id in AUTHORIZED_USER_IDS.split(",") if id.strip())
 
 # OpenAI LLM configuration (preferred)
